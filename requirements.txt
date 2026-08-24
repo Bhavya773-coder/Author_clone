@@ -1,0 +1,26 @@
+## ── OCR & Corpus Processing ──────────────────────────────────────────────
+pymupdf
+pdfplumber
+pytesseract
+pdf2image
+python-slugify
+pillow
+easyocr
+
+## ── RAG / Vector Store ───────────────────────────────────────────────────
+sentence-transformers
+chromadb
+
+## ── Utilities ────────────────────────────────────────────────────────────
+tqdm
+
+## ── Fine-Tuning (Phase 5) — Install these BEFORE running train.py ────────
+## On Windows with CUDA 12.1 GPU, install torch first:
+##   pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+## Then install the rest:
+transformers>=4.43.0
+datasets>=2.20.0
+peft>=0.11.0
+trl>=0.9.0
+bitsandbytes>=0.43.0
+accelerate>=0.31.0

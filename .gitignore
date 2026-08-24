@@ -1,0 +1,79 @@
+# ==================================================
+# Author Voice Pipeline - .gitignore
+# ==================================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+.Python
+*.so
+
+# --- Virtual Environments ---
+.venv/
+venv/
+env/
+.env/
+*.env
+
+# --- Large Data & Model Files ---
+# Raw book scans (copyrighted PDFs)
+data/raw_books/
+27-6-26 BOOK SCAN/
+
+# OCR intermediate output (large, reproducible)
+data/processed/
+
+# Cleaned corpus chunks (large, reproducible from scripts)
+data/cleaned/
+
+# Large vector database binaries (reproducible from indexing)
+data/vector_db/
+
+# HuggingFace model cache
+*.bin
+*.safetensors
+*.onnx
+.cache/
+
+# Ollama model data
+*.gguf
+
+# --- Training Data (keep structure, not large generated files) ---
+# Keep sft_data.jsonl and dpo_data.jsonl if they exist but are small
+# Uncomment below to exclude them if they become very large:
+# data/tuning/sft_data.jsonl
+# data/tuning/dpo_data.jsonl
+
+# --- Jupyter Notebooks ---
+.ipynb_checkpoints/
+*.ipynb
+
+# --- IDE & Editor Files ---
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Logs ---
+logs/
+*.log
+
+# --- Test & Temp Files ---
+tmp/
+temp/
+scratch/
+*.tmp
+
+# --- OS Files ---
+.DS_Store
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db

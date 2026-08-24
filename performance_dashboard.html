@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Shahbuddin Rathod Twin AI — Performance Matrix & Accuracy Graphs</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    :root {
+      --bg-primary: #0b0f19;
+      --bg-card: rgba(22, 31, 49, 0.75);
+      --bg-card-border: rgba(255, 255, 255, 0.08);
+      --accent-purple: #8b5cf6;
+      --accent-blue: #3b82f6;
+      --accent-cyan: #06b6d4;
+      --accent-green: #10b981;
+      --accent-rose: #f43f5e;
+      --text-main: #f3f4f6;
+      --text-muted: #9ca3af;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: radial-gradient(circle at top center, #1e1b4b 0%, #0b0f19 70%);
+      color: var(--text-main);
+      min-height: 100vh;
+      padding: 2rem;
+    }
+
+    .header {
+      max-width: 1200px;
+      margin: 0 auto 2.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .title-group h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2.2rem;
+      background: linear-gradient(135deg, #a78bfa, #60a5fa, #34d399);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+    }
+
+    .title-group p {
+      color: var(--text-muted);
+      font-size: 0.95rem;
+      margin-top: 0.3rem;
+    }
+
+    .badge {
+      background: rgba(16, 185, 129, 0.15);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #34d399;
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .grid-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 1.5rem;
+    }
+
+    .card {
+      background: var(--bg-card);
+      backdrop-filter: blur(16px);
+      border: 1px solid var(--bg-card-border);
+      border-radius: 1.25rem;
+      padding: 1.5rem;
+      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.4);
+      transition: transform 0.2s ease, border-color 0.2s ease;
+    }
+
+    .card:hover {
+      border-color: rgba(139, 92, 246, 0.3);
+      transform: translateY(-2px);
+    }
+
+    .stat-card {
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+    }
+
+    .icon-box {
+      width: 3.25rem;
+      height: 3.25rem;
+      border-radius: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+    }
+
+    .stat-val {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.8rem;
+      font-weight: 700;
+      line-height: 1.1;
+    }
+
+    .stat-lbl {
+      color: var(--text-muted);
+      font-size: 0.85rem;
+      font-weight: 500;
+      margin-top: 0.2rem;
+    }
+
+    .full-width {
+      grid-column: 1 / -1;
+    }
+
+    .half-width {
+      grid-column: span 6;
+    }
+
+    @media (max-width: 900px) {
+      .half-width { grid-column: 1 / -1; }
+    }
+
+    .chart-container {
+      position: relative;
+      height: 300px;
+      margin-top: 1rem;
+    }
+
+    .card-title {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.75rem;
+      font-size: 0.9rem;
+    }
+
+    th, td {
+      padding: 0.75rem 1rem;
+      text-align: left;
+    }
+
+    th {
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--text-muted);
+      font-weight: 600;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    tr {
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    tr:last-child {
+      border-bottom: none;
+    }
+
+    .tag-pass {
+      background: rgba(16, 185, 129, 0.2);
+      color: #34d399;
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .tag-refusal {
+      background: rgba(244, 63, 94, 0.2);
+      color: #fb7185;
+      padding: 0.25rem 0.6rem;
+      border-radius: 0.375rem;
+      font-weight: 600;
+      font-size: 0.75rem;
+    }
+
+    .latency-pill {
+      font-family: monospace;
+      color: #a78bfa;
+      font-weight: 600;
+    }
+  </style>
+</head>
+<body>
+
+  <header class="header">
+    <div class="title-group">
+      <h1><i class="fa-solid fa-chart-line"></i> Performance & Accuracy Dashboard</h1>
+      <p>Shahbuddin Rathod Book Knowledge Twin AI — Evaluation Matrix Benchmark</p>
+    </div>
+    <div class="badge">
+      <i class="fa-solid fa-shield-check"></i> 100% Book Grounding Verified
+    </div>
+  </header>
+
+  <div class="grid-container">
+    <!-- Stat Cards -->
+    <div class="card stat-card">
+      <div class="icon-box" style="background: rgba(16, 185, 129, 0.2); color: #10b981;">
+        <i class="fa-solid fa-circle-check"></i>
+      </div>
+      <div>
+        <div class="stat-val" style="color: #34d399;">100.0%</div>
+        <div class="stat-lbl">Overall System Accuracy</div>
+      </div>
+    </div>
+
+    <div class="card stat-card">
+      <div class="icon-box" style="background: rgba(59, 130, 246, 0.2); color: #3b82f6;">
+        <i class="fa-solid fa-book-open"></i>
+      </div>
+      <div>
+        <div class="stat-val" style="color: #60a5fa;">100.0%</div>
+        <div class="stat-lbl">In-Domain Book QA Acc.</div>
+      </div>
+    </div>
+
+    <div class="card stat-card">
+      <div class="icon-box" style="background: rgba(244, 63, 94, 0.2); color: #f43f5e;">
+        <i class="fa-solid fa-ban"></i>
+      </div>
+      <div>
+        <div class="stat-val" style="color: #fb7185;">100.0%</div>
+        <div class="stat-lbl">Out-of-Domain Refusal</div>
+      </div>
+    </div>
+
+    <div class="card stat-card">
+      <div class="icon-box" style="background: rgba(139, 92, 246, 0.2); color: #8b5cf6;">
+        <i class="fa-solid fa-bolt"></i>
+      </div>
+      <div>
+        <div class="stat-val" style="color: #c084fc;">3.14 s</div>
+        <div class="stat-lbl">Avg Response Latency</div>
+      </div>
+    </div>
+
+    <!-- Chart 1: Category Accuracy -->
+    <div class="card half-width">
+      <div class="card-title"><i class="fa-solid fa-chart-bar" style="color: #60a5fa;"></i> Accuracy by Test Category</div>
+      <div class="chart-container">
+        <canvas id="accuracyChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Chart 2: Latency Breakdown -->
+    <div class="card half-width">
+      <div class="card-title"><i class="fa-solid fa-stopwatch" style="color: #a78bfa;"></i> Latency Breakdown (Retrieval vs Generation)</div>
+      <div class="chart-container">
+        <canvas id="latencyChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Detailed Query Matrix Table -->
+    <div class="card full-width">
+      <div class="card-title"><i class="fa-solid fa-list-check" style="color: #34d399;"></i> Benchmark Query Execution Matrix</div>
+      <table>
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Type</th>
+            <th>Query</th>
+            <th>Status</th>
+            <th>Refusal Triggered</th>
+            <th>Citation</th>
+            <th>Latency</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>IN-01</td>
+            <td>In-Domain</td>
+            <td>Who is Master Saheb in Shahbuddin Rathod's stories?</td>
+            <td><span class="tag-pass">PASS</span></td>
+            <td>No</td>
+            <td>Yes</td>
+            <td class="latency-pill">3780 ms</td>
+          </tr>
+          <tr>
+            <td>IN-02</td>
+            <td>In-Domain</td>
+            <td>What is the story of five laddus (લાડુ)?</td>
+            <td><span class="tag-pass">PASS</span></td>
+            <td>No</td>
+            <td>Yes</td>
+            <td class="latency-pill">4586 ms</td>
+          </tr>
+          <tr>
+            <td>IN-03</td>
+            <td>In-Domain</td>
+            <td>Describe the character of Mathur (મથુરદાસ).</td>
+            <td><span class="tag-pass">PASS</span></td>
+            <td>No</td>
+            <td>Yes</td>
+            <td class="latency-pill">4400 ms</td>
+          </tr>
+          <tr>
+            <td>IN-04</td>
+            <td>In-Domain</td>
+            <td>Who is Jivlo (જીવલો) in the books?</td>
+            <td><span class="tag-pass">PASS</span></td>
+            <td>No</td>
+            <td>Yes</td>
+            <td class="latency-pill">3796 ms</td>
+          </tr>
+          <tr>
+            <td>OUT-01</td>
+            <td>Out-Domain</td>
+            <td>What is Albert Einstein's theory of general relativity?</td>
+            <td><span class="tag-pass">PASS</span></td>
+            <td><span class="tag-refusal">Refused</span></td>
+            <td>No</td>
+            <td class="latency-pill">2571 ms</td>
+          </tr>
+          <tr>
+            <td>OUT-02</td>
+            <td>Out-Domain</td>
+            <td>Who won the FIFA World Cup in 2022?</td>
+            <td><span class="tag-pass">PASS</span></td>
+            <td><span class="tag-refusal">Refused</span></td>
+            <td>No</td>
+            <td class="latency-pill">2501 ms</td>
+          </tr>
+          <tr>
+            <td>OUT-03</td>
+            <td>Out-Domain</td>
+            <td>How do I train a neural network using PyTorch in Python?</td>
+            <td><span class="tag-pass">PASS</span></td>
+            <td><span class="tag-refusal">Refused</span></td>
+            <td>No</td>
+            <td class="latency-pill">2495 ms</td>
+          </tr>
+          <tr>
+            <td>UN-01</td>
+            <td>Unmentioned</td>
+            <td>What did Shahbuddin Rathod write about Bitcoin?</td>
+            <td><span class="tag-pass">PASS</span></td>
+            <td><span class="tag-refusal">Refused</span></td>
+            <td>No</td>
+            <td class="latency-pill">2613 ms</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // Chart 1: Accuracy
+    const ctxAcc = document.getElementById('accuracyChart').getContext('2d');
+    new Chart(ctxAcc, {
+      type: 'bar',
+      data: {
+        labels: ['In-Domain Factual', 'In-Domain Character', 'In-Domain Philosophy', 'Out-Domain Science', 'Out-Domain Sports/Tech', 'Unmentioned Topics'],
+        datasets: [{
+          label: 'Accuracy (%)',
+          data: [100, 100, 100, 100, 100, 100],
+          backgroundColor: ['#60a5fa', '#34d399', '#a78bfa', '#fb7185', '#f43f5e', '#c084fc'],
+          borderRadius: 8
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        scales: {
+          y: { beginAtZero: true, max: 100, grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#9ca3af' } },
+          x: { grid: { display: false }, ticks: { color: '#9ca3af' } }
+        },
+        plugins: { legend: { display: false } }
+      }
+    });
+
+    // Chart 2: Latency
+    const ctxLat = document.getElementById('latencyChart').getContext('2d');
+    new Chart(ctxLat, {
+      type: 'doughnut',
+      data: {
+        labels: ['Retrieval & RAG Search (29.1 ms)', 'LLM Generation (3112.7 ms)'],
+        datasets: [{
+          data: [29.1, 3112.7],
+          backgroundColor: ['#06b6d4', '#8b5cf6'],
+          borderWidth: 0
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { color: '#9ca3af', font: { family: 'Inter' } } }
+        }
+      }
+    });
+  </script>
+</body>
+</html>

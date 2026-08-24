@@ -1,0 +1,934 @@
+{
+  "corpus_averages": {
+    "avg_word_count": 39830.05,
+    "avg_sentence_count": 4581.25,
+    "avg_paragraph_count": 139.55,
+    "avg_vocab_size": 11411.1,
+    "avg_sentence_len": 8.950331778549613,
+    "avg_paragraph_len": 290.5612761909999,
+    "avg_ttr": 0.28968108902988765,
+    "avg_punctuation_density_per_10k": {
+      "exclamations": 33.74492271762183,
+      "questions": 88.78549353744803,
+      "quotes": 401.19645172640895,
+      "parentheses": 13.867698813771288
+    },
+    "avg_sentence_opener_ratios": {
+      "\u0a8f\u0a95": 0.013790805916033563,
+      "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0037036539507161676,
+      "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0001744792261394534,
+      "\u0ab9\u0ac1\u0a82": 0.018389186435365752,
+      "\u0aae\u0ac7\u0a82": 0.013352166281352903,
+      "\u0a85\u0aae\u0ac7": 0.007832193015072719,
+      "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0018193897905110236,
+      "\u0ab9\u0ab5\u0ac7": 0.005970217267146874,
+      "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.00021037950694766943,
+      "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+      "\u0a86\u0aae": 0.002307601877213146,
+      "\u0a9c\u0acb\u0a95\u0ac7": 0.0009721260718194635,
+      "other": 0.9314778006616813
+    }
+  },
+  "books": {
+    "book-01": {
+      "title": "Book-01",
+      "metrics": {
+        "word_count": 36836,
+        "char_count": 218987,
+        "paragraph_count": 134,
+        "sentence_count": 4258,
+        "vocab_size": 11166,
+        "lexical_diversity": {
+          "type_token_ratio": 0.30312737539363666,
+          "root_ttr": 58.17834883911151
+        },
+        "paragraph_distribution": {
+          "mean": 285.52985074626866,
+          "median": 308.0,
+          "std": 64.9392012208466
+        },
+        "sentence_distribution": {
+          "mean": 8.94997651479568,
+          "median": 7.0,
+          "std": 7.1006377930785165
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 67.59691606037572,
+          "questions": 130.57878162666955,
+          "quotes": 459.33326094038443,
+          "parentheses": 10.587468780540775
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.014795678722404886,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0007045561296383278,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.017848755284170972,
+          "\u0aae\u0ac7\u0a82": 0.01456082667919211,
+          "\u0a85\u0aae\u0ac7": 0.005401596993893847,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0004697040864255519,
+          "\u0ab9\u0ab5\u0ac7": 0.008924377642085486,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.00023485204321277596,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0030530765617660873,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0023485204321277596,
+          "other": 0.9316580554250822
+        }
+      }
+    },
+    "book-02": {
+      "title": "Book-02",
+      "metrics": {
+        "word_count": 45689,
+        "char_count": 270924,
+        "paragraph_count": 147,
+        "sentence_count": 4494,
+        "vocab_size": 12295,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2691019720282781,
+          "root_ttr": 57.52050717863742
+        },
+        "paragraph_distribution": {
+          "mean": 315.9251700680272,
+          "median": 323.0,
+          "std": 115.86046548200025
+        },
+        "sentence_distribution": {
+          "mean": 10.396973742768136,
+          "median": 9.0,
+          "std": 7.759281718756759
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 18.822911422880782,
+          "questions": 65.44244785396923,
+          "quotes": 347.1295060080107,
+          "parentheses": 25.38904331458338
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.014686248331108143,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.004672897196261682,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.020026702269692925,
+          "\u0aae\u0ac7\u0a82": 0.013796172674677348,
+          "\u0a85\u0aae\u0ac7": 0.006898086337338674,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0017801513128615932,
+          "\u0ab9\u0ab5\u0ac7": 0.006898086337338674,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0008900756564307966,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.001557632398753894,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0004450378282153983,
+          "other": 0.9283489096573209
+        }
+      }
+    },
+    "book-03": {
+      "title": "Book-03",
+      "metrics": {
+        "word_count": 44503,
+        "char_count": 255998,
+        "paragraph_count": 151,
+        "sentence_count": 4998,
+        "vocab_size": 12378,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2781385524571377,
+          "root_ttr": 58.675369639350805
+        },
+        "paragraph_distribution": {
+          "mean": 295.0794701986755,
+          "median": 315.0,
+          "std": 70.88985236217685
+        },
+        "sentence_distribution": {
+          "mean": 9.038615446178472,
+          "median": 7.0,
+          "std": 6.68941019277996
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 15.05516482034919,
+          "questions": 75.94993595937353,
+          "quotes": 366.4921465968587,
+          "parentheses": 8.314046244073433
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.015006002400960384,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.004801920768307323,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.00040016006402561027,
+          "\u0ab9\u0ac1\u0a82": 0.018807523009203683,
+          "\u0aae\u0ac7\u0a82": 0.012204881952781112,
+          "\u0a85\u0aae\u0ac7": 0.009203681472589036,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.001800720288115246,
+          "\u0ab9\u0ab5\u0ac7": 0.007603041216486595,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.00020008003201280514,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0022008803521408565,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.00040016006402561027,
+          "other": 0.9273709483793517
+        }
+      }
+    },
+    "book-04": {
+      "title": "Book-04",
+      "metrics": {
+        "word_count": 42024,
+        "char_count": 253057,
+        "paragraph_count": 154,
+        "sentence_count": 5613,
+        "vocab_size": 12812,
+        "lexical_diversity": {
+          "type_token_ratio": 0.3048734056729488,
+          "root_ttr": 62.49830456485856
+        },
+        "paragraph_distribution": {
+          "mean": 280.1753246753247,
+          "median": 289.0,
+          "std": 54.91695420050915
+        },
+        "sentence_distribution": {
+          "mean": 7.707642971672902,
+          "median": 6.0,
+          "std": 6.071009845238189
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 49.495526365886164,
+          "questions": 79.4783932990672,
+          "quotes": 488.76832286312583,
+          "parentheses": 16.657148296211687
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.010154997327632281,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.002494209869944771,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.00017815784785319794,
+          "\u0ab9\u0ac1\u0a82": 0.014074469980402637,
+          "\u0aae\u0ac7\u0a82": 0.00944236593621949,
+          "\u0a85\u0aae\u0ac7": 0.00516657758774274,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.00017815784785319794,
+          "\u0ab9\u0ab5\u0ac7": 0.004097630500623553,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0005344735435595938,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0017815784785319793,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0003563156957063959,
+          "other": 0.9515410653839301
+        }
+      }
+    },
+    "book-05": {
+      "title": "Book-05",
+      "metrics": {
+        "word_count": 33326,
+        "char_count": 193867,
+        "paragraph_count": 114,
+        "sentence_count": 3874,
+        "vocab_size": 10329,
+        "lexical_diversity": {
+          "type_token_ratio": 0.30993818640100823,
+          "root_ttr": 56.58048716064589
+        },
+        "paragraph_distribution": {
+          "mean": 292.6140350877193,
+          "median": 304.0,
+          "std": 63.421523377933106
+        },
+        "sentence_distribution": {
+          "mean": 8.703923593185339,
+          "median": 7.0,
+          "std": 6.502519275923703
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 9.902178479265437,
+          "questions": 78.61729580507712,
+          "quotes": 291.3641001020224,
+          "parentheses": 8.401848406649462
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.01626226122870418,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.004130098089829634,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.01987609705730511,
+          "\u0aae\u0ac7\u0a82": 0.014455343314403717,
+          "\u0a85\u0aae\u0ac7": 0.007227671657201859,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0005162622612287042,
+          "\u0ab9\u0ab5\u0ac7": 0.005937016004130098,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0015487867836861124,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0005162622612287042,
+          "other": 0.9295302013422819
+        }
+      }
+    },
+    "book-06": {
+      "title": "Book-06",
+      "metrics": {
+        "word_count": 30457,
+        "char_count": 175937,
+        "paragraph_count": 100,
+        "sentence_count": 3317,
+        "vocab_size": 9000,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2954985717569032,
+          "root_ttr": 51.57021568514261
+        },
+        "paragraph_distribution": {
+          "mean": 312.19,
+          "median": 334.0,
+          "std": 73.37611259803835
+        },
+        "sentence_distribution": {
+          "mean": 9.473017787157069,
+          "median": 8.0,
+          "std": 7.017503313578841
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 15.431592080638278,
+          "questions": 92.58955248382966,
+          "quotes": 476.08103227501067,
+          "parentheses": 10.506615884689891
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.01236056677720832,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0012059089538739825,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.023816701839011155,
+          "\u0aae\u0ac7\u0a82": 0.018390111546578235,
+          "\u0a85\u0aae\u0ac7": 0.011154657823334338,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0006029544769369913,
+          "\u0ab9\u0ab5\u0ac7": 0.006029544769369913,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.003316249623153452,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0006029544769369913,
+          "other": 0.9225203497135966
+        }
+      }
+    },
+    "book-07": {
+      "title": "Book-07",
+      "metrics": {
+        "word_count": 35850,
+        "char_count": 207481,
+        "paragraph_count": 124,
+        "sentence_count": 4003,
+        "vocab_size": 10921,
+        "lexical_diversity": {
+          "type_token_ratio": 0.30463040446304046,
+          "root_ttr": 57.67901392309741
+        },
+        "paragraph_distribution": {
+          "mean": 289.89516129032256,
+          "median": 301.5,
+          "std": 68.29369906093532
+        },
+        "sentence_distribution": {
+          "mean": 9.080189857606795,
+          "median": 7.0,
+          "std": 7.058289465323368
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 4.184100418410042,
+          "questions": 107.11297071129707,
+          "quotes": 310.1813110181311,
+          "parentheses": 7.252440725244073
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.011491381463902073,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0037471896077941546,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.021983512365725707,
+          "\u0aae\u0ac7\u0a82": 0.010741943542343242,
+          "\u0a85\u0aae\u0ac7": 0.004246814888833375,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0017486884836372721,
+          "\u0ab9\u0ab5\u0ac7": 0.005745690731951037,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0029977516862353237,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0009992505620784412,
+          "other": 0.9362977766674994
+        }
+      }
+    },
+    "book-08": {
+      "title": "Book-08",
+      "metrics": {
+        "word_count": 28632,
+        "char_count": 166818,
+        "paragraph_count": 99,
+        "sentence_count": 3244,
+        "vocab_size": 8915,
+        "lexical_diversity": {
+          "type_token_ratio": 0.31136490639843534,
+          "root_ttr": 52.68603363835667
+        },
+        "paragraph_distribution": {
+          "mean": 296.8989898989899,
+          "median": 304.0,
+          "std": 73.98750849380664
+        },
+        "sentence_distribution": {
+          "mean": 9.103575832305795,
+          "median": 7.0,
+          "std": 6.742470763573272
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 51.34115674769489,
+          "questions": 105.47639005308746,
+          "quotes": 509.9189717798268,
+          "parentheses": 9.430008382229673
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.015721331689272502,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0009247842170160296,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.01726263871763255,
+          "\u0aae\u0ac7\u0a82": 0.012022194821208384,
+          "\u0a85\u0aae\u0ac7": 0.005548705302096177,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0015413070283600493,
+          "\u0ab9\u0ab5\u0ac7": 0.006781750924784217,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0018495684340320592,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0015413070283600493,
+          "other": 0.936806411837238
+        }
+      }
+    },
+    "book-09": {
+      "title": "Book-09",
+      "metrics": {
+        "word_count": 50059,
+        "char_count": 289756,
+        "paragraph_count": 171,
+        "sentence_count": 6015,
+        "vocab_size": 13241,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2645078807007731,
+          "root_ttr": 59.180645893390995
+        },
+        "paragraph_distribution": {
+          "mean": 292.97076023391816,
+          "median": 311.0,
+          "std": 67.36324044001995
+        },
+        "sentence_distribution": {
+          "mean": 8.440565253532835,
+          "median": 7.0,
+          "std": 6.312484852825138
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 11.18679957649973,
+          "questions": 106.674124533051,
+          "quotes": 339.7990371361793,
+          "parentheses": 12.984678079865759
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.01828761429758936,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0021612635078969242,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.00016625103906899418,
+          "\u0ab9\u0ac1\u0a82": 0.01762261014131338,
+          "\u0aae\u0ac7\u0a82": 0.017955112219451373,
+          "\u0a85\u0aae\u0ac7": 0.010972568578553617,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0016625103906899418,
+          "\u0ab9\u0ab5\u0ac7": 0.004655029093931837,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0023275145469659184,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0004987531172069825,
+          "other": 0.9236907730673317
+        }
+      }
+    },
+    "book-10": {
+      "title": "Book-10",
+      "metrics": {
+        "word_count": 59457,
+        "char_count": 348960,
+        "paragraph_count": 204,
+        "sentence_count": 6988,
+        "vocab_size": 15387,
+        "lexical_diversity": {
+          "type_token_ratio": 0.25879206821736717,
+          "root_ttr": 63.103356120420635
+        },
+        "paragraph_distribution": {
+          "mean": 292.3382352941176,
+          "median": 307.5,
+          "std": 59.93720822843808
+        },
+        "sentence_distribution": {
+          "mean": 8.651688609044076,
+          "median": 7.0,
+          "std": 6.547088584156634
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 21.359974435306185,
+          "questions": 80.39423448879022,
+          "quotes": 341.2550246396555,
+          "parentheses": 7.063928553408345
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.01187750429307384,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0034344590726960505,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.02346880366342301,
+          "\u0aae\u0ac7\u0a82": 0.014024041213508873,
+          "\u0a85\u0aae\u0ac7": 0.0072982255294791075,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0015741270749856898,
+          "\u0ab9\u0ab5\u0ac7": 0.00815684029765312,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.00014310246136233542,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.002432741843159702,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0011448196908986834,
+          "other": 0.9264453348597596
+        }
+      }
+    },
+    "book-11": {
+      "title": "Book-11",
+      "metrics": {
+        "word_count": 48319,
+        "char_count": 284782,
+        "paragraph_count": 172,
+        "sentence_count": 5533,
+        "vocab_size": 13140,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2719427140462344,
+          "root_ttr": 59.77731394573965
+        },
+        "paragraph_distribution": {
+          "mean": 288.0639534883721,
+          "median": 306.0,
+          "std": 54.940469712925704
+        },
+        "sentence_distribution": {
+          "mean": 8.983372492318814,
+          "median": 7.0,
+          "std": 6.704909038730987
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 57.120387425236444,
+          "questions": 84.02491773422463,
+          "quotes": 457.7909311037066,
+          "parentheses": 8.485274943603965
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.015000903668895716,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0025302729080065064,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.020422917043195373,
+          "\u0aae\u0ac7\u0a82": 0.01337429965660582,
+          "\u0a85\u0aae\u0ac7": 0.011928429423459244,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0003614675582866438,
+          "\u0ab9\u0ab5\u0ac7": 0.0052412795951563345,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0001807337791433219,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0021688053497198627,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0010844026748599313,
+          "other": 0.9277064883426712
+        }
+      }
+    },
+    "book-12": {
+      "title": "Book-12",
+      "metrics": {
+        "word_count": 47739,
+        "char_count": 283401,
+        "paragraph_count": 184,
+        "sentence_count": 5232,
+        "vocab_size": 13118,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2747858145331909,
+          "root_ttr": 60.03865683912656
+        },
+        "paragraph_distribution": {
+          "mean": 264.79347826086956,
+          "median": 276.0,
+          "std": 58.619913897011195
+        },
+        "sentence_distribution": {
+          "mean": 9.31039755351682,
+          "median": 8.0,
+          "std": 7.400614622032903
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 9.216782923814911,
+          "questions": 102.64144619702968,
+          "quotes": 308.7622279477995,
+          "parentheses": 17.805148830096986
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.01242354740061162,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.011085626911314985,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.017775229357798166,
+          "\u0aae\u0ac7\u0a82": 0.01529051987767584,
+          "\u0a85\u0aae\u0ac7": 0.007454128440366973,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.009938837920489297,
+          "\u0ab9\u0ab5\u0ac7": 0.0036314984709480123,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0028669724770642203,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.00095565749235474,
+          "other": 0.9185779816513762
+        }
+      }
+    },
+    "book-13": {
+      "title": "Book-13",
+      "metrics": {
+        "word_count": 44771,
+        "char_count": 272394,
+        "paragraph_count": 154,
+        "sentence_count": 4088,
+        "vocab_size": 12898,
+        "lexical_diversity": {
+          "type_token_ratio": 0.28808827142569965,
+          "root_ttr": 60.957054758646876
+        },
+        "paragraph_distribution": {
+          "mean": 296.6623376623377,
+          "median": 307.5,
+          "std": 57.676574818959416
+        },
+        "sentence_distribution": {
+          "mean": 11.160469667318983,
+          "median": 9.0,
+          "std": 8.421862738774772
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 51.14918138973889,
+          "questions": 45.11849188090505,
+          "quotes": 338.38868910678787,
+          "parentheses": 67.90109669205512
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.013209393346379647,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.007093933463796477,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.001223091976516634,
+          "\u0ab9\u0ac1\u0a82": 0.010029354207436399,
+          "\u0aae\u0ac7\u0a82": 0.007093933463796477,
+          "\u0a85\u0aae\u0ac7": 0.0031800391389432484,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.005136986301369863,
+          "\u0ab9\u0ab5\u0ac7": 0.0026908023483365948,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0004892367906066536,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.004647749510763209,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0014677103718199608,
+          "other": 0.9437377690802349
+        }
+      }
+    },
+    "book-14": {
+      "title": "Book-14",
+      "metrics": {
+        "word_count": 40235,
+        "char_count": 245795,
+        "paragraph_count": 143,
+        "sentence_count": 4962,
+        "vocab_size": 11164,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2774698645457935,
+          "root_ttr": 55.6567477291769
+        },
+        "paragraph_distribution": {
+          "mean": 288.6713286713287,
+          "median": 300.0,
+          "std": 59.25006579604812
+        },
+        "sentence_distribution": {
+          "mean": 8.363160016122531,
+          "median": 7.0,
+          "std": 6.110555843360085
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 34.54703616254505,
+          "questions": 65.36597489747732,
+          "quotes": 384.9881943581459,
+          "parentheses": 11.681371939853362
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.014711809754131399,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.004232164449818622,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.00020153164046755341,
+          "\u0ab9\u0ac1\u0a82": 0.015114873035066506,
+          "\u0aae\u0ac7\u0a82": 0.004433696090286175,
+          "\u0a85\u0aae\u0ac7": 0.0058444175735590485,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0008061265618702137,
+          "\u0ab9\u0ab5\u0ac7": 0.008061265618702136,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.00040306328093510683,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.00040306328093510683,
+          "other": 0.9457879887142281
+        }
+      }
+    },
+    "book-15": {
+      "title": "Book-15",
+      "metrics": {
+        "word_count": 28669,
+        "char_count": 162943,
+        "paragraph_count": 95,
+        "sentence_count": 3251,
+        "vocab_size": 8445,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2945690467055007,
+          "root_ttr": 49.876202736655415
+        },
+        "paragraph_distribution": {
+          "mean": 308.0,
+          "median": 335.0,
+          "std": 80.9385731995502
+        },
+        "sentence_distribution": {
+          "mean": 9.062442325438326,
+          "median": 7.0,
+          "std": 6.711397455124904
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 14.64997035125048,
+          "questions": 95.92242491890195,
+          "quotes": 483.1002127733789,
+          "parentheses": 5.232132268303743
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.016610273761919408,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.00030759766225776686,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.00030759766225776686,
+          "\u0ab9\u0ac1\u0a82": 0.017840664410950478,
+          "\u0aae\u0ac7\u0a82": 0.016302676099661642,
+          "\u0a85\u0aae\u0ac7": 0.012919101814826207,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0015379883112888342,
+          "\u0ab9\u0ab5\u0ac7": 0.00676714856967087,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.00030759766225776686,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0030759766225776685,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.00030759766225776686,
+          "other": 0.9237157797600738
+        }
+      }
+    },
+    "book-16": {
+      "title": "Book-16",
+      "metrics": {
+        "word_count": 41063,
+        "char_count": 246636,
+        "paragraph_count": 145,
+        "sentence_count": 5048,
+        "vocab_size": 11920,
+        "lexical_diversity": {
+          "type_token_ratio": 0.29028565862211725,
+          "root_ttr": 58.82350763747124
+        },
+        "paragraph_distribution": {
+          "mean": 294.29655172413794,
+          "median": 312.0,
+          "std": 57.346030634113674
+        },
+        "sentence_distribution": {
+          "mean": 8.45106973058637,
+          "median": 7.0,
+          "std": 6.555745266791686
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 74.76316878942113,
+          "questions": 92.78425833475391,
+          "quotes": 490.2223412804715,
+          "parentheses": 11.202298906558216
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.017234548335974643,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0017828843106180666,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.00019809825673534074,
+          "\u0ab9\u0ac1\u0a82": 0.014064976228209191,
+          "\u0aae\u0ac7\u0a82": 0.011291600633914422,
+          "\u0a85\u0aae\u0ac7": 0.003961965134706815,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.00019809825673534074,
+          "\u0ab9\u0ab5\u0ac7": 0.005744849445324881,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0025752773375594296,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0005942947702060222,
+          "other": 0.9423534072900158
+        }
+      }
+    },
+    "book-17": {
+      "title": "Book-17",
+      "metrics": {
+        "word_count": 22776,
+        "char_count": 132641,
+        "paragraph_count": 96,
+        "sentence_count": 2781,
+        "vocab_size": 7460,
+        "lexical_diversity": {
+          "type_token_ratio": 0.32753775904460836,
+          "root_ttr": 49.43108012650319
+        },
+        "paragraph_distribution": {
+          "mean": 239.4375,
+          "median": 239.5,
+          "std": 43.53897021156258
+        },
+        "sentence_distribution": {
+          "mean": 8.398417835311038,
+          "median": 7.0,
+          "std": 6.363566995903631
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 35.56375131717598,
+          "questions": 110.20372321742185,
+          "quotes": 398.66526167896035,
+          "parentheses": 13.610818405338954
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.008270406328658756,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.004314994606256742,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0003595828838547285,
+          "\u0ab9\u0ac1\u0a82": 0.02229413879899317,
+          "\u0aae\u0ac7\u0a82": 0.015102481121898598,
+          "\u0a85\u0aae\u0ac7": 0.006112909025530385,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0017979144192736426,
+          "\u0ab9\u0ab5\u0ac7": 0.005753326141675656,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0003595828838547285,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.002876663070837828,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0025170801869830997,
+          "other": 0.9302409205321827
+        }
+      }
+    },
+    "book-18": {
+      "title": "Book-18",
+      "metrics": {
+        "word_count": 35699,
+        "char_count": 210523,
+        "paragraph_count": 128,
+        "sentence_count": 4490,
+        "vocab_size": 10330,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2893638477268271,
+          "root_ttr": 54.67292334435871
+        },
+        "paragraph_distribution": {
+          "mean": 286.4296875,
+          "median": 291.0,
+          "std": 79.7454626054194
+        },
+        "sentence_distribution": {
+          "mean": 8.215367483296214,
+          "median": 7.0,
+          "std": 5.989648450623852
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 54.90349869744251,
+          "questions": 101.40340065548055,
+          "quotes": 449.03218577551195,
+          "parentheses": 8.683716630717948
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.00957683741648107,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.0033407572383073497,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.00022271714922048998,
+          "\u0ab9\u0ac1\u0a82": 0.022048997772828507,
+          "\u0aae\u0ac7\u0a82": 0.02071269487750557,
+          "\u0a85\u0aae\u0ac7": 0.013808463251670379,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0008908685968819599,
+          "\u0ab9\u0ab5\u0ac7": 0.005345211581291759,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.00044543429844097997,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0008908685968819599,
+          "other": 0.92271714922049
+        }
+      }
+    },
+    "book-19": {
+      "title": "Book-19",
+      "metrics": {
+        "word_count": 38666,
+        "char_count": 227529,
+        "paragraph_count": 137,
+        "sentence_count": 4303,
+        "vocab_size": 11514,
+        "lexical_diversity": {
+          "type_token_ratio": 0.29778099622407284,
+          "root_ttr": 58.55467863906328
+        },
+        "paragraph_distribution": {
+          "mean": 290.13138686131384,
+          "median": 302.0,
+          "std": 54.316700059704345
+        },
+        "sentence_distribution": {
+          "mean": 9.253544039042529,
+          "median": 8.0,
+          "std": 6.879838879001717
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 59.48378420317592,
+          "questions": 83.01867273573683,
+          "quotes": 464.2321419334816,
+          "parentheses": 8.276004758702737
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.01254938415059261,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.006042296072507553,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.00023239600278875203,
+          "\u0ab9\u0ac1\u0a82": 0.017429700209156403,
+          "\u0aae\u0ac7\u0a82": 0.010457820125493842,
+          "\u0a85\u0aae\u0ac7": 0.006042296072507553,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0020915640250987683,
+          "\u0ab9\u0ab5\u0ac7": 0.006274692075296305,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.00046479200557750407,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0020915640250987683,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0013943760167325122,
+          "other": 0.9349291192191495
+        }
+      }
+    },
+    "book-20": {
+      "title": "Book-20",
+      "metrics": {
+        "word_count": 41831,
+        "char_count": 242816,
+        "paragraph_count": 139,
+        "sentence_count": 5133,
+        "vocab_size": 11789,
+        "lexical_diversity": {
+          "type_token_ratio": 0.2818244842341804,
+          "root_ttr": 57.640513917181146
+        },
+        "paragraph_distribution": {
+          "mean": 301.1223021582734,
+          "median": 310.0,
+          "std": 62.8327070160045
+        },
+        "sentence_distribution": {
+          "mean": 8.262224819793493,
+          "median": 7.0,
+          "std": 5.999335072457816
+        },
+        "punctuation_density_per_10k_words": {
+          "exclamations": 19.124572685329063,
+          "questions": 72.91243336281705,
+          "quotes": 318.4241352107289,
+          "parentheses": 7.888886232698238
+        },
+        "sentence_opener_ratios": {
+          "\u0a8f\u0a95": 0.015585427625170466,
+          "\u0aaa\u0ab0\u0a82\u0aa4\u0ac1": 0.005065263978180402,
+          "\u0a85\u0ab2\u0aac\u0aa4\u0acd\u0aa4": 0.0,
+          "\u0ab9\u0ac1\u0a82": 0.015975063315799728,
+          "\u0aae\u0ac7\u0a82": 0.015390609779855834,
+          "\u0a85\u0aae\u0ac7": 0.012273524254821741,
+          "\u0aa4\u0acd\u0aaf\u0abe\u0ab0\u0ac7": 0.0017533606078316774,
+          "\u0ab9\u0ab5\u0ac7": 0.005065263978180402,
+          "\u0a96\u0ab0\u0ac7\u0a96\u0ab0": 0.0,
+          "\u0ab5\u0abe\u0ab8\u0acd\u0aa4\u0ab5\u0aae\u0abe\u0a82": 0.0,
+          "\u0a86\u0aae": 0.0023378141437755697,
+          "\u0a9c\u0acb\u0a95\u0ac7": 0.0009740892265731541,
+          "other": 0.925579583089811
+        }
+      }
+    }
+  }
+}
