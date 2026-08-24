@@ -1,53 +1,135 @@
 #!/usr/bin/env python3
 """
-Voice-Enabled Book Knowledge Chatbot API Server
-=================================================
-Serves the web chat UI and provides an HTTP API endpoint (/api/chat)
-connected to BookKnowledgeModel (model.pkl) and local Ollama backend.
+Voice & Talking-Avatar Enabled Book Knowledge Chatbot API Server
+=================================================================
+Serves the web chat UI and provides HTTP API endpoints:
+- /api/chat: Answer queries via BookKnowledgeModel (model.pkl) + Ollama
+- /api/tts: Text-to-Speech synthesis (Edge-TTS / Piper / Fallback)
+- /api/avatar/speak: Trigger talking avatar video render job
+- /api/avatar/status/<job_id>: Check avatar job status
+- /api/avatar/video/<hash>: Serve cached MP4 avatar video
 
 Usage:
   python -X utf8 scripts/server.py
   python -X utf8 scripts/server.py --port 8000
 """
 
+import os
 import sys
 import json
 import pickle
 import urllib.request
 import argparse
+import logging
 from pathlib import Path
 from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 
-# Import BookKnowledgeModel for unpickling
+# Add scripts directory to path
+PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
+
 from build_model import BookKnowledgeModel
+from tts_engine import generate_tts_audio, clean_text_for_speech
+from avatar_engine import (
+    enqueue_avatar_job,
+    get_avatar_job_status,
+    select_avatar_engine,
+    AVATAR_OUTPUT_DIR
+)
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-OLLAMA_MODEL = "qwen2.5:3b"
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
+logger = logging.getLogger("Server")
 
-# Global references
+# Environment Configuration
+OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://localhost:11434/api/generate")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "qwen2.5:3b")
+TTS_PROVIDER = os.environ.get("TTS_PROVIDER", "edge-tts")
+AVATAR_ENGINE_PREF = os.environ.get("AVATAR_ENGINE", "sadtalker")
+AVATAR_PORTRAIT = os.environ.get("AVATAR_PORTRAIT", str(PROJECT_ROOT / "web" / "avatar_character.jpg"))
+
+# Global Model References
 MODEL = None
 TOKENIZER = None
 TRANSFORMER_MODEL = None
 DEVICE = "cpu"
 
 
+def run_startup_validation(model_path="model.pkl"):
+    """Run comprehensive startup validation with clear diagnostic instructions."""
+    print("=" * 70)
+    print("🔍 AUTHOR AI VOICE & AVATAR SERVER — STARTUP VALIDATION")
+    print("=" * 70)
+
+    # 1. Validate model.pkl
+    m_path = Path(model_path)
+    if not m_path.exists():
+        print(f"❌ [model.pkl] Missing at {m_path.resolve()}")
+        print("   👉 Fix: Run `python scripts/build_model.py` to build the knowledge model.")
+    else:
+        print(f"✅ [model.pkl] Found at {m_path.name}")
+
+    # 2. Validate Ollama Backend
+    try:
+        req = urllib.request.Request(
+            OLLAMA_URL.replace("/generate", "/version"),
+            headers={"User-Agent": "AuthorAIServer"}
+        )
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            print(f"✅ [Ollama] Service active at {OLLAMA_URL}")
+    except Exception as e:
+        print(f"⚠️ [Ollama] Could not connect to Ollama at {OLLAMA_URL} ({e})")
+        print("   👉 Fix: Start Ollama by running `ollama serve` in a terminal.")
+
+    # 3. Validate Default Portrait Image
+    p_path = Path(AVATAR_PORTRAIT)
+    if not p_path.exists():
+        print(f"⚠️ [Avatar Portrait] Missing image at {p_path}")
+        print("   👉 Fix: Place a default portrait JPG image at `web/avatar_character.jpg`.")
+    else:
+        print(f"✅ [Avatar Portrait] Found at {p_path.name}")
+
+    # 4. Validate TTS Provider
+    try:
+        import edge_tts
+        print(f"✅ [TTS Provider] Edge-TTS available (Provider: {TTS_PROVIDER})")
+    except ImportError:
+        print(f"⚠️ [TTS Provider] `edge-tts` not installed. Falling back to browser SpeechSynthesis.")
+        print("   👉 Fix: Run `pip install edge-tts`.")
+
+    # 5. Validate Avatar Rendering Engine
+    engine_obj = select_avatar_engine(AVATAR_ENGINE_PREF)
+    if engine_obj.name == "SadTalkerEngine":
+        print(f"✅ [Avatar Engine] Real Photorealistic Video Mode ACTIVE ({engine_obj.name})")
+    elif engine_obj.name == "Wav2LipEngine":
+        print(f"✅ [Avatar Engine] Real Wav2Lip Video Mode ACTIVE ({engine_obj.name})")
+    else:
+        print(f"ℹ️ [Avatar Engine] Active Engine: {engine_obj.name} (Web Audio Lip-Sync Fallback)")
+        print("   👉 Note: To enable real photorealistic video generation, install SadTalker or Wav2Lip")
+        print("            and set SADTALKER_PATH environment variable.")
+
+    print("=" * 70 + "\n")
+
+
 def load_all_resources(model_path="model.pkl"):
     global MODEL, TOKENIZER, TRANSFORMER_MODEL, DEVICE
-    import torch
-    from transformers import AutoTokenizer, AutoModel
-    
-    print(f"📦 Loading BookKnowledgeModel from {model_path}...")
-    with open(model_path, "rb") as f:
-        MODEL = pickle.load(f)
-    print("   ✅ Model loaded successfully!")
 
-    DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
-    print(f"⚙️  Loading embedding encoder ({MODEL.embedding_model_name}) on {DEVICE}...")
-    TOKENIZER = AutoTokenizer.from_pretrained(MODEL.embedding_model_name)
-    TRANSFORMER_MODEL = AutoModel.from_pretrained(MODEL.embedding_model_name).to(DEVICE)
-    TRANSFORMER_MODEL.eval()
-    print("   ✅ Embedding encoder ready!")
+    run_startup_validation(model_path)
+
+    if Path(model_path).exists():
+        print(f"📦 Unpickling BookKnowledgeModel from {model_path}...")
+        with open(model_path, "rb") as f:
+            MODEL = pickle.load(f)
+        print("   ✅ Book Knowledge Index ready!")
+
+        import torch
+        from transformers import AutoTokenizer, AutoModel
+
+        DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
+        print(f"⚙️  Loading embedding encoder ({MODEL.embedding_model_name}) on {DEVICE}...")
+        TOKENIZER = AutoTokenizer.from_pretrained(MODEL.embedding_model_name)
+        TRANSFORMER_MODEL = AutoModel.from_pretrained(MODEL.embedding_model_name).to(DEVICE)
+        TRANSFORMER_MODEL.eval()
+        print("   ✅ Embedding encoder ready!\n")
 
 
 def get_query_embedding(text):
@@ -119,11 +201,13 @@ def format_search_results(results, max_results=5):
 
 
 def answer_query(query, top_k=5):
+    if MODEL is None or TRANSFORMER_MODEL is None:
+        return "Book knowledge model is not loaded. Please build model.pkl first.", []
+
     oks_context = MODEL.get_oks_context(query)
     q_vec = get_query_embedding(query)
     search_results = MODEL.search(q_vec, top_k=top_k * 3, search_type="all")
     
-    # Keyword boost
     keyword_map = {
         "laddu": ["લાડુ", "લાડવા", "પાંચમો લાડુ"],
         "laddus": ["લાડુ", "લાડવા", "પાંચમો લાડુ"],
@@ -199,7 +283,8 @@ def answer_query(query, top_k=5):
             body = json.loads(resp.read().decode("utf-8"))
             response_text = body.get("response", "").strip()
     except Exception as e:
-        response_text = f"[Ollama Connection Error]: {e}"
+        logger.error(f"Ollama request error: {e}")
+        response_text = f"[Ollama Connection Error]: Could not reach Ollama model '{OLLAMA_MODEL}' at {OLLAMA_URL}. Ensure `ollama serve` is running."
         
     sources = []
     seen = set()
@@ -216,40 +301,36 @@ def answer_query(query, top_k=5):
     return response_text, sources
 
 
-def generate_neural_tts_audio(text, voice="en-US-ChristopherNeural"):
-    """Generate ultra-realistic neural speech MP3 audio using edge-tts."""
-    import asyncio
-    import edge_tts
-    import re
-    
-    # Clean markdown formatting and citations before speaking
-    clean = re.sub(r'\[Book-\d+,\s*p\.\d+[^\]]*\]', '', text)
-    clean = re.sub(r'[\*\#\_`]', '', clean).strip()
-    if not clean:
-        clean = "No text to speak."
-
-    async def _amain():
-        communicate = edge_tts.Communicate(clean, voice)
-        audio_data = bytearray()
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_data.extend(chunk["data"])
-        return bytes(audio_data)
-
-    try:
-        return asyncio.run(_amain())
-    except Exception as e:
-        print(f"⚠️ Neural TTS Error: {e}")
-        return None
-
-
 class RequestHandler(SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
-        web_dir = Path(__file__).parent.parent / "web"
+        web_dir = PROJECT_ROOT / "web"
         super().__init__(*args, directory=str(web_dir), **kwargs)
 
+    def do_GET(self):
+        clean_path = self.path.split('?')[0].rstrip('/')
+        # Route avatar job status check: GET /api/avatar/status/<job_id>
+        if clean_path.startswith("/api/avatar/status"):
+            job_id = clean_path.replace("/api/avatar/status", "").lstrip('/').strip()
+            status_data = get_avatar_job_status(job_id)
+            self._send_json(status_data)
+            return
+
+        # Route avatar video serving: GET /api/avatar/video/<job_hash>
+        elif clean_path.startswith("/api/avatar/video"):
+            job_hash = clean_path.replace("/api/avatar/video", "").lstrip('/').strip()
+            video_file = AVATAR_OUTPUT_DIR / f"{job_hash}.mp4"
+            if video_file.exists():
+                self._send_file(video_file, "video/mp4")
+            else:
+                self._send_json({"error": "Avatar video file not found"}, status=404)
+            return
+
+        # Serve static web files
+        super().do_GET()
+
     def do_POST(self):
-        if self.path == "/api/chat":
+        clean_path = self.path.split('?')[0].rstrip('/')
+        if clean_path == "/api/chat":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
             try:
@@ -260,34 +341,76 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     return
                     
                 response_text, sources = answer_query(query)
+                clean_text = clean_text_for_speech(response_text)
+                
+                # Trigger avatar render job asynchronously
+                job_id = enqueue_avatar_job(
+                    text=response_text,
+                    voice=data.get("voice", "en-US-AriaNeural"),
+                    portrait_path=data.get("portrait"),
+                    engine=data.get("engine")
+                )
+
                 self._send_json({
                     "response": response_text,
-                    "sources": sources
+                    "sources": sources,
+                    "speak_text": clean_text,
+                    "avatar_job_id": job_id
                 })
             except Exception as e:
+                logger.error(f"/api/chat endpoint error: {e}")
                 self._send_json({"error": str(e)}, status=500)
 
-        elif self.path == "/api/tts":
+        elif clean_path == "/api/tts":
             content_length = int(self.headers.get("Content-Length", 0))
             post_data = self.rfile.read(content_length)
             try:
                 data = json.loads(post_data.decode("utf-8"))
                 text = data.get("text", "").strip()
-                voice = data.get("voice", "en-US-ChristopherNeural")
+                voice = data.get("voice", "en-US-AriaNeural")
+                provider = data.get("provider", TTS_PROVIDER)
                 if not text:
                     self._send_json({"error": "Empty text"}, status=400)
                     return
-                audio_bytes = generate_neural_tts_audio(text, voice)
+
+                audio_bytes, mime = generate_tts_audio(text, voice, provider)
                 if audio_bytes:
                     self.send_response(200)
-                    self.send_header("Content-Type", "audio/mpeg")
+                    self.send_header("Content-Type", mime)
                     self.send_header("Access-Control-Allow-Origin", "*")
                     self.send_header("Content-Length", str(len(audio_bytes)))
                     self.end_headers()
                     self.wfile.write(audio_bytes)
                 else:
-                    self._send_json({"error": "TTS synthesis failed"}, status=500)
+                    self._send_json({"status": "fallback", "provider": mime, "message": "Using browser speechSynthesis"}, status=200)
             except Exception as e:
+                logger.error(f"/api/tts endpoint error: {e}")
+                self._send_json({"error": str(e)}, status=500)
+
+        elif clean_path == "/api/avatar/speak":
+
+            content_length = int(self.headers.get("Content-Length", 0))
+            post_data = self.rfile.read(content_length)
+            try:
+                data = json.loads(post_data.decode("utf-8"))
+                text = data.get("text", "").strip()
+                voice = data.get("voice", "en-US-AriaNeural")
+                portrait = data.get("portrait")
+                engine = data.get("engine", AVATAR_ENGINE_PREF)
+
+                if not text:
+                    self._send_json({"error": "Empty text"}, status=400)
+                    return
+
+                job_id = enqueue_avatar_job(text=text, voice=voice, portrait_path=portrait, engine=engine)
+                status_info = get_avatar_job_status(job_id)
+                self._send_json({
+                    "job_id": job_id,
+                    "status": status_info.get("status"),
+                    "engine": status_info.get("engine")
+                })
+            except Exception as e:
+                logger.error(f"/api/avatar/speak endpoint error: {e}")
                 self._send_json({"error": str(e)}, status=500)
 
         else:
@@ -302,9 +425,23 @@ class RequestHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
+    def _send_file(self, file_path: Path, content_type: str):
+        try:
+            stat = file_path.stat()
+            self.send_response(200)
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(stat.st_size))
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            with open(file_path, "rb") as f:
+                shutil.copyfileobj(f, self.wfile)
+        except Exception as e:
+            logger.error(f"Error serving file {file_path}: {e}")
+            self.send_error(500, "Internal Server Error")
+
 
 def main():
-    parser = argparse.ArgumentParser(description="Voice-Enabled Book QA Server")
+    parser = argparse.ArgumentParser(description="Voice & Avatar Enabled Book QA Server")
     parser.add_argument("--port", type=int, default=8000, help="Port to serve on (default: 8000)")
     parser.add_argument("--model-path", default="model.pkl", help="Path to model.pkl")
     args = parser.parse_args()
@@ -313,9 +450,9 @@ def main():
     
     server_address = ("", args.port)
     httpd = ThreadingHTTPServer(server_address, RequestHandler)
-    print(f"\n🚀 Server running at http://localhost:{args.port}")
+    print(f"🚀 Server running at http://localhost:{args.port}")
     print(f"💬 Web Chat UI: http://localhost:{args.port}/")
-    print(f"🎙️  Voice Speech-to-Text & Text-to-Speech active!")
+    print(f"🎙️  Voice Speech Synthesis & Talking Avatar pipeline ready!")
     print("Press Ctrl+C to stop.\n")
     try:
         httpd.serve_forever()

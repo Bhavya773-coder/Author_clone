@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Shahbuddin Rathod Voice AI — Photorealistic Lifelike Character Host</title>
+  <title>Shahbuddin Rathod Voice AI — Talking Avatar & Neural Voice Twin</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&display=swap" rel="stylesheet">
@@ -159,7 +159,7 @@
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 1rem;
+      gap: 0.85rem;
       transition: all 0.3s ease;
       box-shadow: 0 10px 40px rgba(0,0,0,0.5);
     }
@@ -172,7 +172,7 @@
     .character-card {
       position: relative;
       width: 290px;
-      height: 340px;
+      height: 330px;
       border-radius: 1.25rem;
       overflow: hidden;
       border: 2px solid rgba(139, 92, 246, 0.4);
@@ -196,7 +196,16 @@
       display: block;
     }
 
-    /* Photorealistic Eyelids Overlay */
+    .character-video {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      z-index: 6;
+    }
+
+    /* Eyelids Overlay */
     .eyelid-left, .eyelid-right {
       position: absolute;
       width: 38px;
@@ -212,7 +221,7 @@
     .eyelid-left { left: 39%; }
     .eyelid-right { left: 56.5%; }
 
-    /* Dynamic Viseme Mouth & Jaw Morph Layer */
+    /* Dynamic Viseme Mouth Overlay */
     .character-mouth-overlay {
       position: absolute;
       top: 48.2%;
@@ -252,7 +261,7 @@
 
     /* Character Status Badge */
     .avatar-status-badge {
-      font-size: 0.78rem;
+      font-size: 0.76rem;
       padding: 0.35rem 0.8rem;
       border-radius: 9999px;
       background: rgba(30, 41, 59, 0.85);
@@ -273,6 +282,11 @@
     .status-dot.speaking {
       background: var(--accent-purple);
       animation: pulse 0.8s infinite;
+    }
+
+    .status-dot.thinking {
+      background: #f59e0b;
+      animation: pulse 0.6s infinite;
     }
 
     .equalizer-bar-container {
@@ -296,23 +310,16 @@
       width: 100%;
       display: flex;
       flex-direction: column;
-      gap: 0.6rem;
-      margin-top: 0.25rem;
-    }
-
-    .avatar-controls label {
-      font-size: 0.78rem;
-      color: var(--text-muted);
-      font-weight: 500;
+      gap: 0.5rem;
     }
 
     .btn-upload {
       background: rgba(139, 92, 246, 0.15);
       border: 1px dashed rgba(139, 92, 246, 0.4);
       color: #c084fc;
-      padding: 0.6rem;
+      padding: 0.55rem;
       border-radius: 0.75rem;
-      font-size: 0.82rem;
+      font-size: 0.8rem;
       cursor: pointer;
       text-align: center;
       transition: all 0.2s ease;
@@ -326,6 +333,27 @@
     .btn-upload:hover {
       background: rgba(139, 92, 246, 0.3);
       color: #fff;
+    }
+
+    .engine-info-badge {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-panel);
+      padding: 0.3rem 0.5rem;
+      border-radius: 0.5rem;
+      text-align: center;
+    }
+
+    /* Safety & Consent Notice */
+    .safety-notice {
+      font-size: 0.68rem;
+      color: #64748b;
+      line-height: 1.35;
+      text-align: center;
+      margin-top: 0.2rem;
+      border-top: 1px solid var(--border-panel);
+      padding-top: 0.4rem;
     }
 
     /* Right Side: Main Chat Layout */
@@ -419,11 +447,16 @@
       box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
     }
 
+    .btn-controls-group {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.75rem;
+    }
+
     .audio-btn {
       display: inline-flex;
       align-items: center;
       gap: 0.4rem;
-      margin-top: 0.75rem;
       background: rgba(139, 92, 246, 0.25);
       border: 1px solid rgba(139, 92, 246, 0.4);
       color: #c084fc;
@@ -436,6 +469,17 @@
 
     .audio-btn:hover {
       background: rgba(139, 92, 246, 0.5);
+      color: #fff;
+    }
+
+    .btn-stop {
+      background: rgba(244, 63, 94, 0.25);
+      border-color: rgba(244, 63, 94, 0.4);
+      color: #fda4af;
+    }
+
+    .btn-stop:hover {
+      background: rgba(244, 63, 94, 0.5);
       color: #fff;
     }
 
@@ -565,22 +609,22 @@
       </div>
       <div class="brand-title">
         <h1>Shahbuddin Rathod Voice AI</h1>
-        <p>Interactive Lifelike Character Host & Neural Speech Twin</p>
+        <p>Interactive Character Host & Book Knowledge Twin</p>
       </div>
     </div>
     <div class="nav-controls">
-      <select id="voiceSelect" class="select-voice" title="Select Ultra-Realistic Neural Voice">
+      <select id="voiceSelect" class="select-voice" title="Select Neural Voice Preset">
         <option value="en-US-AriaNeural" selected>🎙️ Aria (Expressive Female)</option>
         <option value="en-US-ChristopherNeural">🎙️ Christopher (Deep Male Narrator)</option>
         <option value="en-US-GuyNeural">🎙️ Guy (Natural Male)</option>
         <option value="en-IN-PrabhatNeural">🎙️ Prabhat (Indian Accent Male)</option>
         <option value="gu-IN-NiranjanNeural">🎙️ Niranjan (Native Gujarati Accent)</option>
       </select>
-      <button id="avatarToggleBtn" class="btn-toggle active" title="Toggle Character Stage">
-        <i class="fa-solid fa-face-smile"></i> Character Stage: ON
+      <button id="avatarToggleBtn" class="btn-toggle active" title="Toggle Stage Panel">
+        <i class="fa-solid fa-face-smile"></i> Stage: ON
       </button>
-      <button id="ttsToggleBtn" class="btn-toggle active" title="Toggle Auto Text-to-Speech">
-        <i class="fa-solid fa-volume-high"></i> HD Voice: ON
+      <button id="ttsToggleBtn" class="btn-toggle active" title="Toggle Auto Speech">
+        <i class="fa-solid fa-volume-high"></i> Voice: ON
       </button>
       <button id="langToggleBtn" class="btn-toggle" title="Toggle Voice Recognition Language">
         <i class="fa-solid fa-language"></i> Mic: EN-US
@@ -595,13 +639,17 @@
     <aside id="avatarStagePanel" class="avatar-stage-panel">
       <div class="character-card">
         <div id="characterWrapper" class="character-body-wrapper">
-          <img id="characterImg" class="character-img" src="/avatar_character.jpg" alt="Your Character">
+          <!-- Static/Idle Portrait -->
+          <img id="avatarImage" class="character-img" src="/avatar_character.jpg" alt="Your Character">
           
-          <!-- Eyelid Layers for Natural Blinking -->
+          <!-- Rendered Video Player (SadTalker/Wav2Lip) -->
+          <video id="avatarVideo" class="character-video" style="display: none;" playsinline loop></video>
+
+          <!-- Eyelid Overlay for Natural Blinking -->
           <div id="eyelidL" class="eyelid-left"></div>
           <div id="eyelidR" class="eyelid-right"></div>
 
-          <!-- Dynamic Lip-Sync Mouth Overlay -->
+          <!-- Dynamic Lip-Sync Mouth Overlay Fallback -->
           <div id="characterMouth" class="character-mouth-overlay">
             <div id="teethUpper" class="mouth-teeth-upper"></div>
             <div id="teethLower" class="mouth-teeth-lower"></div>
@@ -609,20 +657,30 @@
         </div>
       </div>
 
+      <!-- State Machine Badge -->
       <div id="avatarStatus" class="avatar-status-badge">
         <div id="statusDot" class="status-dot"></div>
         <span id="statusText">Character Alive & Idle</span>
       </div>
 
-      <div class="equalizer-bar-container" title="Real-time Speech Audio Frequency">
+      <div class="equalizer-bar-container" title="Real-time Audio Frequency">
         <div id="equalizerBar" class="equalizer-bar-fill"></div>
       </div>
 
       <div class="avatar-controls">
         <label for="customCharacterInput" class="btn-upload">
-          <i class="fa-solid fa-cloud-arrow-up"></i> Upload Any Other Character
+          <i class="fa-solid fa-cloud-arrow-up"></i> Upload Character Portrait
         </label>
         <input type="file" id="customCharacterInput" accept="image/*" style="display: none;" onchange="handleCharacterUpload(event)">
+        
+        <div id="engineBadge" class="engine-info-badge">
+          Engine: Web Audio API Lip-Sync (Zero Dependency)
+        </div>
+      </div>
+
+      <!-- Safety & Consent Disclosure -->
+      <div class="safety-notice">
+        <strong>Notice:</strong> AI character twin demonstration. Only use photos/voices with permission. Generated speech does not represent official statements of real persons.
       </div>
     </aside>
 
@@ -632,8 +690,8 @@
         <div class="msg-group bot">
           <div class="avatar"><i class="fa-solid fa-book-sparkles"></i></div>
           <div class="bubble">
-            Greetings! I am your <strong>Interactive Character Host</strong> for Shahbuddin Rathod's book knowledge.<br><br>
-            ✨ <strong>I am Alive:</strong> Ask me any question, and I will speak to you with natural breathing, eye blinking, and live synchronized lip movement!
+            Greetings! I am your <strong>Interactive Character Host</strong> grounded in Shahbuddin Rathod's 20 books.<br><br>
+            ✨ Ask me any question! I will answer with full book page citations and speak to you with live voice synthesis!
           </div>
         </div>
       </div>
@@ -648,7 +706,7 @@
 
       <!-- Input Bar -->
       <div class="input-bar">
-        <input type="text" id="userInput" placeholder="Ask your character host a question..." onkeypress="handleKeyPress(event)">
+        <input type="text" id="userInput" placeholder="Ask a question..." onkeypress="handleKeyPress(event)">
         <button id="micBtn" class="btn-action btn-mic" onclick="toggleVoiceInput()" title="Speak your question">
           <i class="fa-solid fa-microphone"></i>
         </button>
@@ -660,9 +718,11 @@
 
   </div>
 
-  <!-- Character Host Lifelike Animation & Lip-Sync Script -->
+  <!-- State Machine & Audio Engine Script -->
   <script>
     const characterWrapper = document.getElementById("characterWrapper");
+    const avatarImage = document.getElementById("avatarImage");
+    const avatarVideo = document.getElementById("avatarVideo");
     const characterMouth = document.getElementById("characterMouth");
     const teethUpper = document.getElementById("teethUpper");
     const teethLower = document.getElementById("teethLower");
@@ -671,13 +731,40 @@
     const equalizerBar = document.getElementById("equalizerBar");
     const statusDot = document.getElementById("statusDot");
     const statusText = document.getElementById("statusText");
+    const engineBadge = document.getElementById("engineBadge");
 
     let mouseX = 0, mouseY = 0;
     let animTime = 0;
     let isBlinking = false;
     let blinkTimer = 0;
+    let currentState = "idle"; // idle, thinking, generating_speech, rendering_avatar, speaking, error
 
-    // 1. Idle Breathing & 3D Perspective Mouse Look
+    // State Machine UI Updates
+    function setAppState(state, message = "") {
+      currentState = state;
+      statusDot.className = "status-dot";
+
+      if (state === "idle") {
+        statusText.textContent = "Character Alive & Idle";
+        if (equalizerBar) equalizerBar.style.width = "0%";
+      } else if (state === "thinking") {
+        statusDot.classList.add("thinking");
+        statusText.textContent = "AI Searching Books...";
+      } else if (state === "generating_speech") {
+        statusDot.classList.add("thinking");
+        statusText.textContent = "Synthesizing Neural Speech...";
+      } else if (state === "rendering_avatar") {
+        statusDot.classList.add("thinking");
+        statusText.textContent = "Rendering Video (SadTalker)...";
+      } else if (state === "speaking") {
+        statusDot.classList.add("speaking");
+        statusText.textContent = message || "Speaking & Answering...";
+      } else if (state === "error") {
+        statusText.textContent = message || "Notice / Error";
+      }
+    }
+
+    // Idle Breathing & 3D Mouse Perspective Look
     window.addEventListener("mousemove", (e) => {
       mouseX = (e.clientX / window.innerWidth - 0.5) * 12;
       mouseY = (e.clientY / window.innerHeight - 0.5) * 12;
@@ -687,7 +774,6 @@
       requestAnimationFrame(animateCharacterLoop);
       animTime += 0.03;
 
-      // Idle breathing scale and head rotation
       const breathScale = 1.0 + Math.sin(animTime * 0.8) * 0.008;
       const breathY = Math.sin(animTime * 0.8) * 2;
 
@@ -695,14 +781,14 @@
         characterWrapper.style.transform = `scale(${breathScale}) translateY(${breathY}px) rotateY(${mouseX}deg) rotateX(${-mouseY}deg)`;
       }
 
-      // Natural Eye Blinking Logic
+      // Natural Eye Blinking
       blinkTimer += 0.016;
       if (blinkTimer > 3.2) {
         isBlinking = true;
         blinkTimer = 0;
       }
 
-      if (isBlinking) {
+      if (isBlinking && avatarVideo.style.display === "none") {
         eyelidL.style.height = "18px";
         eyelidR.style.height = "18px";
         setTimeout(() => {
@@ -714,19 +800,21 @@
     }
     animateCharacterLoop();
 
-    // Custom Character Image Upload Handler
+    // Portrait Upload Handler
     function handleCharacterUpload(event) {
       const file = event.target.files[0];
       if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-          document.getElementById("characterImg").src = e.target.result;
+          avatarImage.src = e.target.result;
+          avatarVideo.style.display = "none";
+          avatarImage.style.display = "block";
         };
         reader.readAsDataURL(file);
       }
     }
 
-    // Audio & Chat Logic Setup
+    // App Control Elements
     const chatMessages = document.getElementById("chatMessages");
     const userInput = document.getElementById("userInput");
     const micBtn = document.getElementById("micBtn");
@@ -760,10 +848,10 @@
       autoTTS = !autoTTS;
       if (autoTTS) {
         ttsToggleBtn.classList.add("active");
-        ttsToggleBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i> HD Voice: ON';
+        ttsToggleBtn.innerHTML = '<i class="fa-solid fa-volume-high"></i> Voice: ON';
       } else {
         ttsToggleBtn.classList.remove("active");
-        ttsToggleBtn.innerHTML = '<i class="fa-solid fa-volume-xmark"></i> HD Voice: OFF';
+        ttsToggleBtn.innerHTML = '<i class="fa-solid fa-volume-xmark"></i> Voice: OFF';
         stopCurrentAudio();
       }
     });
@@ -801,9 +889,18 @@
     }
 
     function stopCurrentAudio() {
-      if (currentAudio) { currentAudio.pause(); currentAudio = null; }
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+      if (avatarVideo) {
+        avatarVideo.pause();
+        avatarVideo.style.display = "none";
+        avatarImage.style.display = "block";
+      }
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       resetCharacterMouthState();
+      setAppState("idle");
     }
 
     function resetCharacterMouthState() {
@@ -814,12 +911,10 @@
       }
       if (teethUpper) teethUpper.style.opacity = "0";
       if (teethLower) teethLower.style.opacity = "0";
-      if (statusDot) statusDot.classList.remove("speaking");
-      if (statusText) statusText.innerText = "Character Alive & Idle";
       if (equalizerBar) equalizerBar.style.width = "0%";
     }
 
-    // Real-Time Web Audio API Viseme Engine for Character Lip Sync
+    // Web Audio API Amplitude Engine for CSS Lip-Sync Fallback
     let audioCtx = null;
     let analyser = null;
 
@@ -837,8 +932,7 @@
         const bufferLength = analyser.frequencyBinCount;
         const dataArray = new Uint8Array(bufferLength);
 
-        if (statusDot) statusDot.classList.add("speaking");
-        if (statusText) statusText.innerText = "Character Speaking & Answering...";
+        setAppState("speaking", "Speaking (Web Audio Lip-Sync)...");
 
         function updateLipSyncFrame() {
           if (audioElement && !audioElement.paused && !audioElement.ended) {
@@ -849,51 +943,90 @@
             let avg = sum / bufferLength;
             let norm = Math.min(1.0, avg / 45.0);
 
-            // Dynamic mouth opening & width expansion
             const mHeight = Math.max(4, norm * 22);
             const mWidth = 44 + norm * 14;
-            const mRadius = norm > 0.35 ? "30%" : "40%";
 
-            if (characterMouth) {
+            if (characterMouth && avatarVideo.style.display === "none") {
               characterMouth.style.height = `${mHeight}px`;
               characterMouth.style.width = `${mWidth}px`;
-              characterMouth.style.borderRadius = mRadius;
             }
 
             if (teethUpper) teethUpper.style.opacity = norm > 0.2 ? "0.9" : "0";
             if (teethLower) teethLower.style.opacity = norm > 0.4 ? "0.7" : "0";
-
             if (equalizerBar) equalizerBar.style.width = `${Math.min(100, norm * 110)}%`;
 
             requestAnimationFrame(updateLipSyncFrame);
           } else {
             resetCharacterMouthState();
+            if (currentState === "speaking") setAppState("idle");
           }
         }
         updateLipSyncFrame();
       } catch (e) {
-        console.warn("AudioContext note:", e);
+        console.warn("Web Audio Context note:", e);
       }
     }
 
-    function speakText(text) {
+    // Poll Avatar Job Status
+    function checkAvatarJobStatus(jobId) {
+      if (!jobId) return;
+
+      fetch(`/api/avatar/status/${jobId}`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.engine) {
+          engineBadge.textContent = `Engine: ${data.engine} ${data.is_video ? '(MP4 Video)' : '(Web Audio Fallback)'}`;
+        }
+
+        if (data.status === "done" && data.is_video && data.video_url) {
+          avatarVideo.src = data.video_url;
+          avatarImage.style.display = "none";
+          avatarVideo.style.display = "block";
+          avatarVideo.play().catch(e => console.warn(e));
+          setAppState("speaking", "Playing SadTalker Lip-Sync Video...");
+        } else if (data.status === "processing" || data.status === "queued") {
+          setTimeout(() => checkAvatarJobStatus(jobId), 1500);
+        }
+      })
+      .catch(err => console.warn("Job status check error:", err));
+    }
+
+    function speakText(text, avatarJobId = null) {
       if (!autoTTS) return;
       stopCurrentAudio();
+      setAppState("generating_speech");
+
       fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text, voice: voiceSelect.value }) })
-      .then(res => res.blob())
-      .then(blob => {
-        currentAudio = new Audio(URL.createObjectURL(blob));
-        currentAudio.onplay = () => { if (isAvatarEnabled) attachCharacterLipSync(currentAudio); };
-        currentAudio.play().catch(e => console.warn(e));
+      .then(res => {
+        if (res.headers.get("Content-Type")?.includes("json")) {
+          return res.json().then(data => {
+            fallbackBrowserTTS(text);
+          });
+        }
+        return res.blob().then(blob => {
+          currentAudio = new Audio(URL.createObjectURL(blob));
+          currentAudio.onplay = () => {
+            if (isAvatarEnabled) attachCharacterLipSync(currentAudio);
+          };
+          currentAudio.onended = () => {
+            resetCharacterMouthState();
+            setAppState("idle");
+          };
+          currentAudio.play().catch(e => console.warn(e));
+
+          if (avatarJobId) checkAvatarJobStatus(avatarJobId);
+        });
       })
       .catch(() => fallbackBrowserTTS(text));
     }
 
     function fallbackBrowserTTS(text) {
       if (!('speechSynthesis' in window)) return;
-      const u = new SpeechSynthesisUtterance(text.replace(/[\*\#\_`]/g, ""));
+      setAppState("speaking", "Speaking (Browser Voice)...");
+      const cleanText = text.replace(/\[(?:Source:|[Book"\w\s\-]+,?\s*p\.\d+[^\]]*)\]/gi, "").replace(/[\*\#\_`]/g, "");
+      const u = new SpeechSynthesisUtterance(cleanText);
       u.onstart = () => { if (isAvatarEnabled) simulateLipSyncFallback(); };
-      u.onend = () => resetCharacterMouthState();
+      u.onend = () => { resetCharacterMouthState(); setAppState("idle"); };
       window.speechSynthesis.speak(u);
     }
 
@@ -902,9 +1035,10 @@
       const interval = setInterval(() => {
         if (window.speechSynthesis.speaking) {
           toggle = !toggle;
-          characterMouth.style.height = toggle ? "18px" : "4px";
-          characterMouth.style.width = toggle ? "54px" : "44px";
-          teethUpper.style.opacity = toggle ? "0.9" : "0";
+          if (characterMouth) {
+            characterMouth.style.height = toggle ? "18px" : "4px";
+            characterMouth.style.width = toggle ? "54px" : "44px";
+          }
         } else {
           clearInterval(interval);
           resetCharacterMouthState();
@@ -917,20 +1051,141 @@
 
     function submitMessage() {
       const q = userInput.value.trim(); if (!q) return;
-      appendMessage(q, "user"); userInput.value = "";
-      fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: q }) })
+      appendUserMessage(q);
+      userInput.value = "";
+
+      setAppState("thinking");
+      const loadingId = appendTypingIndicator();
+
+      fetch("/api/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: q, voice: voiceSelect.value })
+      })
       .then(res => res.json())
-      .then(d => { appendMessage(d.response, "bot", d.sources); speakText(d.response); });
+      .then(d => {
+        removeTypingIndicator(loadingId);
+        if (d.error) {
+          appendBotMessage(`Error: ${d.error}`);
+          setAppState("error", "API Error");
+        } else {
+          appendBotMessage(d.response, d.sources);
+          speakText(d.speak_text || d.response, d.avatar_job_id);
+        }
+      })
+      .catch(err => {
+        removeTypingIndicator(loadingId);
+        appendBotMessage(`Connection Error: ${err.message}`);
+        setAppState("error", "Connection Error");
+      });
     }
 
-    function appendMessage(text, sender, sources = []) {
-      const g = document.createElement("div"); g.className = `msg-group ${sender}`;
-      g.innerHTML = `<div class="avatar"><i class="fa-solid ${sender === 'user' ? 'fa-user' : 'fa-book-sparkles'}"></i></div><div class="bubble">${text.replace(/\n/g, "<br>")}</div>`;
-      if (sender === "bot") {
-        const btn = document.createElement("button"); btn.className = "audio-btn"; btn.innerHTML = '<i class="fa-solid fa-play"></i> Replay Character Speech';
-        btn.onclick = () => speakText(text); g.querySelector('.bubble').appendChild(btn);
+    // XSS-Safe DOM Message Rendering Functions
+    function appendUserMessage(text) {
+      const group = document.createElement("div");
+      group.className = "msg-group user";
+
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.innerHTML = '<i class="fa-solid fa-user"></i>';
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      bubble.textContent = text; // XSS-safe textContent
+
+      group.appendChild(avatar);
+      group.appendChild(bubble);
+      chatMessages.appendChild(group);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendBotMessage(text, sources = []) {
+      const group = document.createElement("div");
+      group.className = "msg-group bot";
+
+      const avatar = document.createElement("div");
+      avatar.className = "avatar";
+      avatar.innerHTML = '<i class="fa-solid fa-book-sparkles"></i>';
+
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+
+      // Render text paragraphs safely
+      const paragraphs = text.split("\n");
+      paragraphs.forEach((pText, idx) => {
+        if (pText.trim()) {
+          const p = document.createElement("p");
+          p.textContent = pText;
+          if (idx > 0) p.style.marginTop = "0.5rem";
+          bubble.appendChild(p);
+        }
+      });
+
+      // Controls: Replay and Stop buttons
+      const btnGroup = document.createElement("div");
+      btnGroup.className = "btn-controls-group";
+
+      const replayBtn = document.createElement("button");
+      replayBtn.className = "audio-btn";
+      replayBtn.innerHTML = '<i class="fa-solid fa-play"></i> Replay Speech';
+      replayBtn.onclick = () => speakText(text);
+
+      const stopBtn = document.createElement("button");
+      stopBtn.className = "audio-btn btn-stop";
+      stopBtn.innerHTML = '<i class="fa-solid fa-stop"></i> Stop';
+      stopBtn.onclick = () => stopCurrentAudio();
+
+      btnGroup.appendChild(replayBtn);
+      btnGroup.appendChild(stopBtn);
+      bubble.appendChild(btnGroup);
+
+      // Book Sources Box
+      if (sources && sources.length > 0) {
+        const srcBox = document.createElement("div");
+        srcBox.className = "sources-box";
+        const srcTitle = document.createElement("strong");
+        srcTitle.textContent = "📌 Book Sources:";
+        srcBox.appendChild(srcTitle);
+        srcBox.appendChild(document.createElement("br"));
+
+        sources.forEach(s => {
+          const chip = document.createElement("span");
+          chip.className = "source-chip";
+          chip.innerHTML = `<i class="fa-solid fa-bookmark"></i> ${s.book}, ${s.page}`;
+          srcBox.appendChild(chip);
+        });
+        bubble.appendChild(srcBox);
       }
-      chatMessages.appendChild(g); chatMessages.scrollTop = chatMessages.scrollHeight;
+
+      group.appendChild(avatar);
+      group.appendChild(bubble);
+      chatMessages.appendChild(group);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    }
+
+    function appendTypingIndicator() {
+      const id = "loading-" + Date.now();
+      const group = document.createElement("div");
+      group.className = "msg-group bot";
+      group.id = id;
+      group.innerHTML = `
+        <div class="avatar"><i class="fa-solid fa-book-sparkles"></i></div>
+        <div class="bubble">
+          <div class="typing-indicator">
+            <div class="dot"></div>
+            <div class="dot"></div>
+            <div class="dot"></div>
+          </div>
+        </div>
+      `;
+      chatMessages.appendChild(group);
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+      return id;
+    }
+
+    function removeTypingIndicator(id) {
+      const el = document.getElementById(id);
+      if (el) el.remove();
     }
   </script>
 </body>

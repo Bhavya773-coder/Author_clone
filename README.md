@@ -1,137 +1,143 @@
-# Author Voice Pipeline
+# Author Voice & Talking-Avatar Pipeline
 
-An end-to-end pipeline to build a **Gujarati Author Twin AI** of Shahbuddin Rathod — a famous Gujarati humorist and philosopher. The system extracts structured knowledge from 20 books, builds a semantic retrieval layer, and generates fine-tuning data to train a local LLM to speak in the author's distinct voice.
+An end-to-end grounded RAG knowledge chatbot and **Interactive Talking Avatar Twin** for **Shahbuddin Rathod** — a famous Gujarati humorist and philosopher. 
 
----
-
-## Project Phases
-
-| Phase | Description | Status |
-|-------|-------------|--------|
-| Phase 1 | OCR + Text Extraction from 20 scanned PDFs | ✅ Complete |
-| Phase 1.5 | Corpus Cleaning, Normalisation & Chunking | ✅ Complete |
-| Phase 2a | LLM-Assisted Structured Knowledge Extraction (Ollama) | ✅ Complete |
-| Phase 2b | Stylometric Profiling (sentence length, TTR, punctuation) | ✅ Complete |
-| Phase 3 | Vector Embedding & Semantic RAG (ChromaDB) | ✅ Complete |
-| Phase 4 | Fine-Tuning Data Construction (SFT + DPO pairs) | 🔄 In Progress |
-| Phase 5 | QLoRA Fine-tuning | 🔜 Upcoming |
-| Phase 6 | Persona Orchestrator (Retrieval + Generation + Checking) | 🔜 Upcoming |
+The system extracts structured knowledge from all 20 of his published books, performs semantic retrieval (ChromaDB + multilingual-e5-base), streams neural text-to-speech, and drives an **interactive talking avatar** with lip-sync.
 
 ---
 
-## Project Structure
+## 🌟 Key Features
 
-```
-author_voice_pipeline/
-├── scripts/
-│   ├── clean_corpus.py            # Phase 1.5: OCR cleaning and chunking
-│   ├── extract_knowledge.py       # Phase 2a: Knowledge extraction via Ollama
-│   ├── stylometric_profile.py     # Phase 2b: Compute author style fingerprint
-│   ├── index_corpus.py            # Phase 3: Embed corpus into local ChromaDB
-│   ├── retrieve.py                # Phase 3: CLI semantic search tool
-│   ├── generate_tuning_data.py    # Phase 4: SFT/DPO training pair generation
-│   └── verify_data.py             # Phase 4: Stylometric verification of training data
-├── requirements.txt
-└── ...
-
-data/
-├── style_profile.json             # Quantitative stylometric fingerprint
-├── style_report.md                # Human-readable style analysis
-├── knowledge/                     # 2,634 structured Markdown knowledge records
-│   └── book-XX/
-│       └── book-XX_cleaned_NNNN.md
-├── tuning/                        # Generated fine-tuning datasets
-│   ├── sft_data.jsonl             # Supervised Fine-Tuning pairs
-│   └── dpo_data.jsonl             # DPO preference pairs
-└── vector_db/                     # Local ChromaDB vector index (5,316 vectors)
-```
+1. **Grounded 20-Book Knowledge Base**: Answers questions strictly grounded in Shahbuddin Rathod's 20 books with exact page citations.
+2. **Neural Speech Synthesis**: Powered by `edge-tts` (English & Gujarati voices), local `piper` TTS, or browser speech synthesis fallback.
+3. **Pluggable Talking Avatar Pipeline**:
+   - **SadTalkerEngine**: Photorealistic MP4 video generation from portrait images + audio (when SadTalker is installed).
+   - **Wav2LipEngine**: Alternative video lip-sync engine.
+   - **CssAvatarEngine**: Zero-dependency Web Audio API amplitude lip-sync engine (never breaks the site if video AI models are not installed).
+4. **Interactive Web Application**: Responsive dark-mode UI with state machine badges, 3D mouse-tracking perspective, eye blinking, DOM XSS safety, Replay/Stop controls, and portrait photo uploading.
+5. **Robust Automated Testing**: Smoke test suite verifying endpoints, startup validations, and fallbacks.
 
 ---
 
-## Setup
+## 🚀 Quick Start Guide
 
-### 1. Clone the repo
+### 1. Clone & Environment Setup
+
 ```bash
 git clone https://github.com/Bhavya773-coder/Author_clone.git
 cd Author_clone
-```
 
-### 2. Create virtual environment
-```bash
+# Create virtual environment
 python -m venv .venv
-.venv\Scripts\activate  # Windows
-source .venv/bin/activate  # Mac/Linux
-```
 
-### 3. Install dependencies
-```bash
+# Activate environment
+# On Windows:
+.venv\Scripts\activate
+# On Mac/Linux:
+source .venv/bin/activate
+
+# Install requirements
 pip install -r requirements.txt
 ```
 
-### 4. Install Ollama and pull the model
+### 2. Ollama Backend Setup
+
+Install [Ollama](https://ollama.com) and download the LLM model:
+
 ```bash
-# Install Ollama from https://ollama.com
+# Start Ollama server
+ollama serve
+
+# In a separate terminal, pull Qwen 2.5:
 ollama pull qwen2.5:3b
 ```
 
+### 3. Launch Web Server
+
+```bash
+python -X utf8 scripts/server.py --port 8000
+```
+
+Open your browser and visit:
+👉 **[http://localhost:8000/](http://localhost:8000/)**
+
 ---
 
-## Usage
+## ⚙️ Environment Configuration
 
-### Run Knowledge Extraction
-```bash
-python -X utf8 scripts/extract_knowledge.py --cleaned-dir ../data/cleaned --knowledge-dir ../data/knowledge
-```
+You can customize server and engine options using environment variables:
 
-### Build Vector Index
-```bash
-python -X utf8 scripts/index_corpus.py --cleaned-dir ../data/cleaned --knowledge-dir ../data/knowledge --db-dir ../data/vector_db
-```
+| Variable | Default Value | Description |
+|----------|---------------|-------------|
+| `OLLAMA_URL` | `http://localhost:11434/api/generate` | Local Ollama HTTP endpoint |
+| `OLLAMA_MODEL` | `qwen2.5:3b` | Local Ollama model name |
+| `TTS_PROVIDER` | `edge-tts` | TTS provider (`edge-tts`, `piper`, `browser`) |
+| `TTS_VOICE` | `en-US-AriaNeural` | Default neural voice preset |
+| `AVATAR_ENGINE` | `sadtalker` | Avatar engine (`sadtalker`, `wav2lip`, `css`) |
+| `AVATAR_PORTRAIT` | `web/avatar_character.jpg` | Path to default avatar portrait image |
+| `AVATAR_OUTPUT_DIR` | `web/avatar_cache` | Path to store rendered avatar MP4 cache |
+| `SADTALKER_PATH` | Path to SadTalker repo | Directory containing SadTalker `inference.py` |
+| `WAV2LIP_PATH` | Path to Wav2Lip repo | Directory containing Wav2Lip `inference.py` |
 
-### Semantic Search
-```bash
-python -X utf8 scripts/retrieve.py --query "હાસ્ય" --top-k 5
-```
-
-### English Book Knowledge QA Model
-
-The system supports training a dedicated **English Book Knowledge QA Model** trained to answer questions about the books, stories, philosophy, and anecdotes strictly in **English**.
-
-#### 1. Generate English SFT Training Dataset
-```bash
-python -X utf8 scripts/generate_english_tuning_data.py --knowledge-dir knowledge --output-dir tuning
-```
-
-#### 2. Fine-Tune English Model (QLoRA)
-```bash
-python -X utf8 scripts/train_english.py --data-dir tuning --output-dir models/book-qa-english-v1
-```
-
-#### 3. Chat with English Book QA Model (with Cross-Lingual RAG)
-```bash
-# Interactive Chat
-python -X utf8 scripts/chat_english.py --adapter-dir models/book-qa-english-v1
-
-# Single Query Test (Ollama backend)
-python -X utf8 scripts/chat_english.py --use-ollama --query "What is Master Saheb's philosophy on life?"
+Example launching with custom settings on Windows PowerShell:
+```powershell
+$env:TTS_VOICE="en-US-ChristopherNeural"
+$env:AVATAR_ENGINE="sadtalker"
+python -X utf8 scripts/server.py --port 8000
 ```
 
 ---
 
-## Key Stylometric Findings
-| Metric | Value |
-|--------|-------|
-| Mean sentence length | 8.95 words |
-| Dialogue/Quote density | 401.2 per 10k words |
-| Exclamation mark density | 33.7 per 10k words |
-| Vocabulary diversity (TTR) | 28.97% |
+## 🎭 SadTalker / Wav2Lip Photorealistic Video Setup (Optional)
+
+If you want real MP4 video generation instead of Web Audio lip-sync fallback:
+
+1. **Install SadTalker**:
+   ```bash
+   git clone https://github.com/OpenTalker/SadTalker.git SadTalker
+   cd SadTalker
+   pip install -r requirements.txt
+   # Download SadTalker pre-trained checkpoints to SadTalker/checkpoints/
+   ```
+
+2. **Set Environment Variable**:
+   ```bash
+   export SADTALKER_PATH="/absolute/path/to/SadTalker"
+   ```
+
+3. **GPU / CPU Expectations**:
+   - **NVIDIA GPU (CUDA)**: Renders a 5-second video clip in ~3–8 seconds.
+   - **CPU Mode**: Renders in ~30–60 seconds.
+   - *Note:* The web app displays audio and CSS lip-sync immediately while asynchronously rendering video in the background!
 
 ---
 
-## Tech Stack
-- **OCR**: Tesseract + EasyOCR
-- **Knowledge Extraction**: Ollama (`qwen2.5:3b`)
-- **Embeddings**: `intfloat/multilingual-e5-base` (via sentence-transformers)
-- **Vector DB**: ChromaDB (persistent local storage)
-- **Fine-Tuning**: Hugging Face PEFT + TRL (QLoRA 4-bit NF4)
+## 🧪 Running Automated Tests
 
+Run the automated smoke test suite to verify server endpoints, speech synthesis, and fallbacks:
+
+```bash
+python scripts/test_server.py --url http://127.0.0.1:8000
+```
+
+Sample output:
+```
+======================================================================
+🧪 AUTHOR AI SERVER SMOKE TEST SUITE — Target: http://127.0.0.1:8000
+======================================================================
+  ✅ PASS: GET / (Web UI) Status: 200
+  ✅ PASS: POST /api/chat Job ID: job_1787573...
+  ✅ PASS: POST /api/tts MIME: audio/mpeg, Bytes: 24891
+  ✅ PASS: POST /api/avatar/speak Enqueued Job ID: job_1787573...
+  ✅ PASS: GET /api/avatar/status/<job_id> Status: done, Engine: CssAvatarEngine
+  ✅ PASS: Error Handling (Empty Query) Returned HTTP 400 as expected
+======================================================================
+📊 TEST SUMMARY: 5 PASSED | 0 FAILED
+======================================================================
+```
+
+---
+
+## 📜 Safety & Consent Disclosure
+
+> **Notice:** AI character twin demonstration. Only use photos/voices with explicit permission. AI responses are synthesized for demonstration and do not represent official statements of real persons.
