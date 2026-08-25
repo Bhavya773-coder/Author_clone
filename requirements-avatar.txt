@@ -1,0 +1,27 @@
+## ── Real-Time Avatar Service (scripts/realtime_avatar_server.py) ─────────
+## Install CUDA-compatible PyTorch FIRST (see docs/REALTIME_AVATAR.md):
+##   pip install torch torchvision --index-url https://download.pytorch.org/whl/cu121
+
+fastapi>=0.110.0
+uvicorn>=0.29.0
+pydantic>=2.6.0
+python-multipart>=0.0.9        # required for multipart portrait uploads
+
+aiortc>=1.8.0                  # WebRTC delivery (synchronized audio+video)
+av>=12.0.0                     # PyAV frames for aiortc
+
+numpy>=1.26.0
+pillow>=10.0.0
+opencv-python-headless>=4.9.0  # Haar face/eye detection for portrait preprocessing
+
+edge-tts>=6.1.9                # existing voice (driving audio for MuseTalk)
+
+## ── MuseTalk 1.5 runtime ─────────────────────────────────────────────────
+## torch is installed separately (CUDA build, see above). The remaining
+## MuseTalk dependencies are installed by scripts/install_avatar.sh from the
+## MuseTalk repository's own requirements.txt, pinned there. Key pins:
+transformers==4.46.3           # Whisper feature extractor (MuseTalk-verified)
+diffusers>=0.30.0
+accelerate>=0.28.0
+soundfile>=0.12.0
+librosa>=0.10.0

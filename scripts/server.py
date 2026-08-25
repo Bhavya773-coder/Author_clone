@@ -18,6 +18,8 @@ import os
 import sys
 import json
 import pickle
+import shutil
+import threading
 import urllib.request
 import argparse
 import logging
@@ -29,7 +31,8 @@ PROJECT_ROOT = Path(__file__).parent.parent.resolve()
 sys.path.insert(0, str(Path(__file__).parent.resolve()))
 
 from build_model import BookKnowledgeModel
-from tts_engine import generate_tts_audio, clean_text_for_speech
+from tts_engine import clean_text_for_speech
+from audio_pipeline import synthesize_speech_once
 from avatar_engine import (
     enqueue_avatar_job,
     get_avatar_job_status,
@@ -342,13 +345,24 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     
                 response_text, sources = answer_query(query)
                 clean_text = clean_text_for_speech(response_text)
-                
-                # Trigger avatar render job asynchronously
+                voice = data.get("voice", "en-US-AriaNeural")
+
+                # Pre-warm the single-generation TTS cache in the background so
+                # the answer text returns immediately, while the browser's
+                # /api/tts request (and any Replay) hits warm cache instead of
+                # generating speech twice.
+                threading.Thread(
+                    target=lambda: synthesize_speech_once(clean_text, voice),
+                    daemon=True, name="tts-prewarm"
+                ).start()
+
+                # Trigger avatar render job asynchronously. The engines reuse
+                # the cached audio via the cache key, so TTS runs exactly once.
                 job_id = enqueue_avatar_job(
                     text=response_text,
-                    voice=data.get("voice", "en-US-AriaNeural"),
+                    voice=voice,
                     portrait_path=data.get("portrait"),
-                    engine=data.get("engine")
+                    engine=data.get("engine"),
                 )
 
                 self._send_json({
@@ -373,7 +387,8 @@ class RequestHandler(SimpleHTTPRequestHandler):
                     self._send_json({"error": "Empty text"}, status=400)
                     return
 
-                audio_bytes, mime = generate_tts_audio(text, voice, provider)
+                # Single-generation cache: identical (text, voice) replays never re-run TTS.
+                audio_bytes, mime = synthesize_speech_once(text, voice, provider)
                 if audio_bytes:
                     self.send_response(200)
                     self.send_header("Content-Type", mime)

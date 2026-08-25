@@ -642,8 +642,8 @@
           <!-- Static/Idle Portrait -->
           <img id="avatarImage" class="character-img" src="/avatar_character.jpg" alt="Your Character">
           
-          <!-- Rendered Video Player (SadTalker/Wav2Lip) -->
-          <video id="avatarVideo" class="character-video" style="display: none;" playsinline loop></video>
+          <!-- Live WebRTC stream (MuseTalk) — plays synchronized audio+video -->
+          <video id="avatarVideo" class="character-video" style="display: none;" playsinline autoplay></video>
 
           <!-- Eyelid Overlay for Natural Blinking -->
           <div id="eyelidL" class="eyelid-left"></div>
@@ -671,8 +671,18 @@
         <label for="customCharacterInput" class="btn-upload">
           <i class="fa-solid fa-cloud-arrow-up"></i> Upload Character Portrait
         </label>
-        <input type="file" id="customCharacterInput" accept="image/*" style="display: none;" onchange="handleCharacterUpload(event)">
-        
+        <input type="file" id="customCharacterInput" accept="image/jpeg,image/png,image/webp" style="display: none;" onchange="handleCharacterUpload(event)">
+
+        <!-- Manual crop adjustment (shown after a portrait upload) -->
+        <div id="cropAdjustPanel" style="display:none; gap:0.3rem; justify-content:center; flex-wrap:wrap;">
+          <button class="audio-btn" title="Shift crop left" onclick="adjustCrop(-0.15,0,0)"><i class="fa-solid fa-arrow-left"></i></button>
+          <button class="audio-btn" title="Shift crop right" onclick="adjustCrop(0.15,0,0)"><i class="fa-solid fa-arrow-right"></i></button>
+          <button class="audio-btn" title="Shift crop up" onclick="adjustCrop(0,-0.15,0)"><i class="fa-solid fa-arrow-up"></i></button>
+          <button class="audio-btn" title="Shift crop down" onclick="adjustCrop(0,0.15,0)"><i class="fa-solid fa-arrow-down"></i></button>
+          <button class="audio-btn" title="Zoom in" onclick="adjustCrop(0,0,0.15)"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
+          <button class="audio-btn" title="Zoom out" onclick="adjustCrop(0,0,-0.15)"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
+        </div>
+
         <div id="engineBadge" class="engine-info-badge">
           Engine: Web Audio API Lip-Sync (Zero Dependency)
         </div>
@@ -737,7 +747,7 @@
     let animTime = 0;
     let isBlinking = false;
     let blinkTimer = 0;
-    let currentState = "idle"; // idle, thinking, generating_speech, rendering_avatar, speaking, error
+    let currentState = "idle"; // loading_avatar, connecting, idle, thinking, generating_speech, speaking, stopped, fallback, error
 
     // State Machine UI Updates
     function setAppState(state, message = "") {
@@ -747,18 +757,26 @@
       if (state === "idle") {
         statusText.textContent = "Character Alive & Idle";
         if (equalizerBar) equalizerBar.style.width = "0%";
+      } else if (state === "loading_avatar") {
+        statusDot.classList.add("thinking");
+        statusText.textContent = "Loading Avatar Engine...";
+      } else if (state === "connecting") {
+        statusDot.classList.add("thinking");
+        statusText.textContent = "Connecting Real-Time Stream...";
       } else if (state === "thinking") {
         statusDot.classList.add("thinking");
         statusText.textContent = "AI Searching Books...";
       } else if (state === "generating_speech") {
         statusDot.classList.add("thinking");
         statusText.textContent = "Synthesizing Neural Speech...";
-      } else if (state === "rendering_avatar") {
-        statusDot.classList.add("thinking");
-        statusText.textContent = "Rendering Video (SadTalker)...";
       } else if (state === "speaking") {
         statusDot.classList.add("speaking");
         statusText.textContent = message || "Speaking & Answering...";
+      } else if (state === "stopped") {
+        statusText.textContent = "Stopped";
+        if (equalizerBar) equalizerBar.style.width = "0%";
+      } else if (state === "fallback") {
+        statusText.textContent = message || "GPU Unavailable — CSS Avatar Fallback";
       } else if (state === "error") {
         statusText.textContent = message || "Notice / Error";
       }
@@ -800,17 +818,166 @@
     }
     animateCharacterLoop();
 
-    // Portrait Upload Handler
-    function handleCharacterUpload(event) {
+    // =====================================================================
+    // Real-Time Avatar Client (MuseTalk + WebRTC)
+    // =====================================================================
+    const RT_BASE = `${location.protocol}//${location.hostname}:8001`;
+    let rtSessionId = null;
+    let rtPC = null;
+    let rtActive = false;        // true when the MuseTalk WebRTC path is live
+    let speakInFlight = false;   // prevents overlapping speech jobs
+    let idleTimer = null;
+
+    async function initRealtimeAvatar() {
+      setAppState("loading_avatar");
+      try {
+        const caps = await fetch(`${RT_BASE}/api/avatar/capabilities`).then(r => r.json());
+        if (!caps.webrtc || !caps.engine || !caps.engine.available) {
+          engineBadge.textContent = "Engine: CSS Fallback (GPU/MuseTalk unavailable)";
+          setAppState("fallback");
+          return;
+        }
+        engineBadge.textContent = `Engine: ${caps.engine.engine} @ ${caps.target_fps}fps (Real-Time WebRTC)`;
+        const s = await fetch(`${RT_BASE}/api/avatar/session`, { method: "POST" }).then(r => r.json());
+        rtSessionId = s.session_id;
+        await connectWebRTC();
+        rtActive = true;
+        setAppState("idle");
+      } catch (e) {
+        console.warn("Real-time avatar init failed, CSS fallback active:", e);
+        engineBadge.textContent = "Engine: CSS Fallback (realtime service unreachable)";
+        setAppState("fallback");
+      }
+    }
+
+    async function connectWebRTC() {
+      setAppState("connecting");
+      if (rtPC) { try { rtPC.close(); } catch (_) {} rtPC = null; }
+      rtPC = new RTCPeerConnection();
+      rtPC.addTransceiver("video", { direction: "recvonly" });
+      rtPC.addTransceiver("audio", { direction: "recvonly" });
+
+      rtPC.ontrack = (ev) => {
+        // Audio AND video arrive on ONE MediaStream with a shared timeline —
+        // the <video> element plays both, so lip-sync cannot drift.
+        if (ev.streams && ev.streams[0]) {
+          avatarVideo.srcObject = ev.streams[0];
+          avatarImage.style.display = "none";
+          avatarVideo.style.display = "block";
+          avatarVideo.play().catch(() => {
+            // Autoplay with audio may need a user gesture — resume on first click
+            const resume = () => { avatarVideo.play().catch(() => {}); document.removeEventListener("click", resume); };
+            document.addEventListener("click", resume);
+          });
+        }
+      };
+
+      rtPC.onconnectionstatechange = async () => {
+        if (["failed", "disconnected"].includes(rtPC.connectionState) && rtActive) {
+          console.warn("WebRTC interrupted — reconnecting...");
+          try { await connectWebRTC(); } catch (e) { rtActive = false; setAppState("fallback"); }
+        }
+      };
+
+      const offer = await rtPC.createOffer();
+      await rtPC.setLocalDescription(offer);
+      const ans = await fetch(`${RT_BASE}/api/avatar/session/${rtSessionId}/offer`, {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sdp: rtPC.localDescription.sdp, type: rtPC.localDescription.type })
+      });
+      if (!ans.ok) throw new Error(`WebRTC offer failed: ${ans.status}`);
+      await rtPC.setRemoteDescription(await ans.json());
+    }
+
+    async function speakRealtime(text) {
+      if (!rtActive || !rtSessionId) return false;
+      if (speakInFlight) await stopRealtime();   // cancel previous answer
+      speakInFlight = true;
+      setAppState("generating_speech");
+      try {
+        const res = await fetch(`${RT_BASE}/api/avatar/session/${rtSessionId}/speak`, {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, voice: voiceSelect.value })
+        });
+        if (!res.ok) {
+          if (res.status === 503) { rtActive = false; setAppState("fallback"); return false; }
+          throw new Error(`speak failed: ${res.status}`);
+        }
+        const data = await res.json();
+        setAppState("speaking", "Speaking (MuseTalk Real-Time)...");
+        // Return to idle state when the utterance has played out
+        clearTimeout(idleTimer);
+        idleTimer = setTimeout(() => { if (currentState === "speaking") setAppState("idle"); },
+                               (data.speech_duration_s + 1.5) * 1000);
+        return true;
+      } catch (e) {
+        console.warn("speakRealtime error:", e);
+        return false;
+      } finally {
+        speakInFlight = false;
+      }
+    }
+
+    async function stopRealtime() {
+      clearTimeout(idleTimer);
+      if (rtSessionId) {
+        try { await fetch(`${RT_BASE}/api/avatar/session/${rtSessionId}/stop`, { method: "POST" }); } catch (_) {}
+      }
+    }
+
+    window.addEventListener("beforeunload", () => {
+      if (rtPC) try { rtPC.close(); } catch (_) {}
+      if (rtSessionId) {
+        try { fetch(`${RT_BASE}/api/avatar/session/${rtSessionId}`, { method: "DELETE", keepalive: true }); } catch (_) {}
+      }
+    });
+
+    // ---- Portrait upload (REAL backend endpoint) ----
+    let currentPortraitFile = null;
+    let cropAdjust = { x: 0, y: 0, zoom: 1 };
+    const cropAdjustPanel = document.getElementById("cropAdjustPanel");
+
+    async function handleCharacterUpload(event) {
       const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-          avatarImage.src = e.target.result;
-          avatarVideo.style.display = "none";
-          avatarImage.style.display = "block";
-        };
-        reader.readAsDataURL(file);
+      if (!file) return;
+      currentPortraitFile = file;
+      cropAdjust = { x: 0, y: 0, zoom: 1 };
+      await uploadPortraitToBackend();
+    }
+
+    async function adjustCrop(dx, dy, dz) {
+      if (!currentPortraitFile) return;
+      cropAdjust.x = Math.max(-1, Math.min(1, cropAdjust.x + dx));
+      cropAdjust.y = Math.max(-1, Math.min(1, cropAdjust.y + dy));
+      cropAdjust.zoom = Math.max(0.5, Math.min(3, cropAdjust.zoom + dz));
+      await uploadPortraitToBackend();
+    }
+
+    async function uploadPortraitToBackend() {
+      if (!currentPortraitFile) return;
+      // Local preview first (instant feedback), then the authoritative processed crop
+      const localURL = URL.createObjectURL(currentPortraitFile);
+      avatarImage.src = localURL;
+      avatarImage.style.display = "block";
+      if (!rtActive && !rtSessionId) {
+        try { await fetch(`${RT_BASE}/api/avatar/health`); } catch (_) { URL.revokeObjectURL(localURL); return; }
+      }
+      try {
+        const fd = new FormData();
+        fd.append("file", currentPortraitFile);
+        const q = `?offset_x=${cropAdjust.x}&offset_y=${cropAdjust.y}&zoom=${cropAdjust.zoom}`;
+        const res = await fetch(`${RT_BASE}/api/avatar/portrait${q}`, { method: "POST", body: fd });
+        const data = await res.json();
+        if (!res.ok) { setAppState("error", data.detail || "Portrait rejected"); return; }
+        URL.revokeObjectURL(localURL);
+        avatarImage.src = `${RT_BASE}${data.preview_url}`;  // processed crop for confirmation
+        cropAdjustPanel.style.display = "flex";
+        if (data.warnings && data.warnings.length) {
+          setAppState("error", data.warnings[0] + " — use the crop arrows to adjust.");
+          setTimeout(() => setAppState("idle"), 5000);
+        }
+      } catch (e) {
+        console.warn("Portrait upload failed:", e);
       }
     }
 
@@ -889,18 +1056,20 @@
     }
 
     function stopCurrentAudio() {
+      stopRealtime();   // interrupts MuseTalk generation + stream server-side (< ~500 ms)
       if (currentAudio) {
         currentAudio.pause();
+        URL.revokeObjectURL(currentAudio.src);
         currentAudio = null;
       }
-      if (avatarVideo) {
+      if (avatarVideo && !rtActive) {
         avatarVideo.pause();
         avatarVideo.style.display = "none";
         avatarImage.style.display = "block";
       }
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       resetCharacterMouthState();
-      setAppState("idle");
+      setAppState("stopped");
     }
 
     function resetCharacterMouthState() {
@@ -991,11 +1160,19 @@
       .catch(err => console.warn("Job status check error:", err));
     }
 
-    function speakText(text, avatarJobId = null) {
+    async function speakText(text, avatarJobId = null) {
       if (!autoTTS) return;
-      stopCurrentAudio();
-      setAppState("generating_speech");
+      // stopCurrentAudio sets state "stopped"; for a NEW utterance we continue below
+      stopRealtime();
+      if (currentAudio) { currentAudio.pause(); URL.revokeObjectURL(currentAudio.src); currentAudio = null; }
+      if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+      resetCharacterMouthState();
 
+      // Preferred path: persistent MuseTalk + WebRTC (audio+video on one timeline)
+      if (rtActive && await speakRealtime(text)) return;
+
+      // Fallback path: /api/tts audio + CSS lip-sync (server reuses cached TTS audio)
+      setAppState("generating_speech");
       fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text, voice: voiceSelect.value }) })
       .then(res => {
         if (res.headers.get("Content-Type")?.includes("json")) {
@@ -1051,6 +1228,7 @@
 
     function submitMessage() {
       const q = userInput.value.trim(); if (!q) return;
+      stopCurrentAudio();   // cancel the previous answer's speech/generation
       appendUserMessage(q);
       userInput.value = "";
 
@@ -1187,6 +1365,10 @@
       const el = document.getElementById(id);
       if (el) el.remove();
     }
+
+    // Boot the real-time avatar (MuseTalk + WebRTC). Falls back to the CSS
+    // avatar automatically when the realtime service/GPU is unavailable.
+    initRealtimeAvatar();
   </script>
 </body>
 </html>

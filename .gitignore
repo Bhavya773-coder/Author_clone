@@ -77,3 +77,11 @@ scratch/
 .Trashes
 ehthumbs.db
 Thumbs.db
+
+# --- Real-Time Avatar ---
+web/avatar_cache/
+web/avatar_portraits/
+MuseTalk/
+musetalk_checkpoints/
+*.pth
+checkpoints/

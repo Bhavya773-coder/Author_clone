@@ -22,7 +22,8 @@ import logging
 from pathlib import Path
 from typing import Dict, Any
 
-from tts_engine import generate_tts_audio, clean_text_for_speech
+from tts_engine import clean_text_for_speech
+from audio_pipeline import synthesize_speech_once
 
 logger = logging.getLogger("AvatarEngine")
 
@@ -80,15 +81,19 @@ class CssAvatarEngine:
 
 
 class SadTalkerEngine:
-    """Generates photorealistic talking-head video using SadTalker."""
+    """Generates photorealistic talking-head video using SadTalker.
+    NOTE: retained ONLY for optional offline/high-quality MP4 export —
+    never used for the live avatar stream (MuseTalk + WebRTC handles that)."""
     name = "SadTalkerEngine"
 
-    def render(self, text: str, voice: str, portrait_path: str, output_mp4: Path) -> Dict[str, Any]:
+    def render(self, text: str, voice: str, portrait_path: str, output_mp4: Path,
+               audio_bytes: bytes = None) -> Dict[str, Any]:
         if not is_sadtalker_available():
             raise RuntimeError("SadTalker is not installed or SADTALKER_PATH is invalid.")
 
-        # 1. Synthesize audio first
-        audio_bytes, mime = generate_tts_audio(text, voice, provider="edge-tts")
+        # 1. Reuse pre-generated audio when provided (TTS runs exactly once per answer)
+        if not audio_bytes:
+            audio_bytes, _mime = synthesize_speech_once(text, voice, provider="edge-tts")
         if not audio_bytes:
             raise RuntimeError("TTS generation failed for SadTalker input.")
 
@@ -133,16 +138,27 @@ class Wav2LipEngine:
     """Generates lip-synced video using Wav2Lip."""
     name = "Wav2LipEngine"
 
-    def render(self, text: str, voice: str, portrait_path: str, output_mp4: Path) -> Dict[str, Any]:
+    def render(self, text: str, voice: str, portrait_path: str, output_mp4: Path,
+               audio_bytes: bytes = None) -> Dict[str, Any]:
         if not is_wav2lip_available():
             raise RuntimeError("Wav2Lip is not installed or WAV2LIP_PATH is invalid.")
 
-        audio_bytes, mime = generate_tts_audio(text, voice, provider="edge-tts")
+        if not audio_bytes:
+            audio_bytes, _mime = synthesize_speech_once(text, voice, provider="edge-tts")
         if not audio_bytes:
             raise RuntimeError("TTS generation failed for Wav2Lip input.")
 
+        # Edge-TTS returns MP3 bytes — decode to a REAL RIFF/WAV via FFmpeg.
+        # (The old code wrote MP3 bytes into a .wav file, which corrupts Wav2Lip input.)
+        from audio_pipeline import _run_ffmpeg_decode
+        import wave
+        pcm = _run_ffmpeg_decode(audio_bytes, 16000, "s16le")
         temp_audio = output_mp4.parent / f"temp_w2l_{output_mp4.stem}.wav"
-        temp_audio.write_bytes(audio_bytes)
+        with wave.open(str(temp_audio), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(16000)
+            wf.writeframes(pcm.tobytes())
 
         w2l_path = Path(os.environ.get("WAV2LIP_PATH", str(PROJECT_ROOT / "Wav2Lip"))).resolve()
         w2l_script = w2l_path / "inference.py"
@@ -185,7 +201,8 @@ def select_avatar_engine(preferred: str = None):
     return CssAvatarEngine()
 
 
-def process_avatar_job(job_id: str, text: str, voice: str, portrait_path: str, preferred_engine: str):
+def process_avatar_job(job_id: str, text: str, voice: str, portrait_path: str,
+                       preferred_engine: str, audio_bytes: bytes = None):
     """Background worker function executing avatar video generation with fallback."""
     job = JOBS.get(job_id)
     if not job:
@@ -206,7 +223,7 @@ def process_avatar_job(job_id: str, text: str, voice: str, portrait_path: str, p
         return
 
     try:
-        res = engine.render(text, voice, portrait_path, cached_mp4)
+        res = engine.render(text, voice, portrait_path, cached_mp4, audio_bytes=audio_bytes)
         job["status"] = "done"
         job["is_video"] = res.get("is_video", False)
         if res.get("is_video") and cached_mp4.exists():
@@ -232,8 +249,8 @@ def _worker_loop():
             job_item = JOB_QUEUE.get()
             if job_item is None:
                 break
-            job_id, text, voice, portrait_path, engine = job_item
-            process_avatar_job(job_id, text, voice, portrait_path, engine)
+            job_id, text, voice, portrait_path, engine, audio_bytes = job_item
+            process_avatar_job(job_id, text, voice, portrait_path, engine, audio_bytes)
             JOB_QUEUE.task_done()
         except Exception as e:
             logger.error(f"Worker queue error: {e}")
