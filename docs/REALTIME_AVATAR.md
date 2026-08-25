@@ -119,6 +119,8 @@ python -X utf8 scripts/realtime_avatar_server.py            # terminal 3 (avatar
 | `AVATAR_DEVICE` | `cuda:0` | CUDA device selection |
 | `AVATAR_FP16` | `1` | Half precision |
 | `AVATAR_TARGET_FPS` | `25` | Video frame rate |
+| `AVATAR_BATCH_SIZE` | `4` | MuseTalk frames per inference batch (lower = lower first-frame latency) |
+| `AVATAR_BBOX_SHIFT` | `0` | MuseTalk face-crop bbox shift (tune if the mouth region is clipped) |
 | `AVATAR_MAX_QUEUE` | `3` | Bounded speech queue |
 | `AVATAR_PORTRAIT_DIR` | `web/avatar_portraits` | Uploaded portrait store |
 | `AVATAR_ALLOWED_ORIGINS` | `http://localhost:8000,...` | CORS allow-list (never `*` in production) |

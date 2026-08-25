@@ -158,81 +158,85 @@ class _PacedTrack:
             await asyncio.sleep(delay)
 
 
-class AvatarVideoTrack(MediaStreamTrack, _PacedTrack):
-    """Streams idle-loop frames, switching to MuseTalk frames during speech."""
+if _AIORTC_AVAILABLE:
+    class AvatarVideoTrack(MediaStreamTrack, _PacedTrack):
+        """Streams idle-loop frames, switching to MuseTalk frames during speech."""
 
-    kind = "video"
+        kind = "video"
 
-    def __init__(self, session: "AvatarSession"):
-        super().__init__()
-        self._init_pacing()
-        self.session = session
-        self._last_frame: Optional[np.ndarray] = None
-        self._idle_idx = 0
+        def __init__(self, session: "AvatarSession"):
+            super().__init__()
+            self._init_pacing()
+            self.session = session
+            self._last_frame: Optional[np.ndarray] = None
+            self._idle_idx = 0
 
-    async def recv(self):
-        import av
-        pts, time_base = self._next_pts(90000 // TARGET_FPS, 90000)
-        await self._pace(pts, 90000)
+        async def recv(self):
+            import av
+            pts, time_base = self._next_pts(90000 // TARGET_FPS, 90000)
+            await self._pace(pts, 90000)
 
-        frame: Optional[np.ndarray] = None
-        speech = self.session.speech_state
-        if speech is not None:
-            # Align video frame to the audio timeline by frame index
-            idx = self._counter // (90000 // TARGET_FPS) - 1
-            if speech.ended_at(idx * SAMPLES_PER_VIDEO_FRAME):
-                # Utterance finished -> smoothly return to the idle loop
-                logger.info("Session %s speech ended (stats=%s) — returning to idle",
-                            self.session.session_id,
-                            {k: round(v, 3) if isinstance(v, float) else v
-                             for k, v in speech.stats.items()})
-                self.session.speech_state = None
-                speech = None
+            frame: Optional[np.ndarray] = None
+            speech = self.session.speech_state
+            if speech is not None:
+                # Align video frame to the audio timeline by frame index
+                idx = self._counter // (90000 // TARGET_FPS) - 1
+                if speech.ended_at(idx * SAMPLES_PER_VIDEO_FRAME):
+                    # Utterance finished -> smoothly return to the idle loop
+                    logger.info("Session %s speech ended (stats=%s) — returning to idle",
+                                self.session.session_id,
+                                {k: round(v, 3) if isinstance(v, float) else v
+                                 for k, v in speech.stats.items()})
+                    self.session.speech_state = None
+                    speech = None
+                else:
+                    frame = speech.get_video_frame(idx)
+
+            if frame is None:
+                loop = self.session.idle_loop
+                if loop:
+                    frame = loop[self._idle_idx % len(loop)]
+                    self._idle_idx += 1
+
+            if frame is None:
+                frame = np.zeros((OUTPUT_SIZE[1], OUTPUT_SIZE[0], 3), dtype=np.uint8)
+
+            self._last_frame = frame
+            vf = av.VideoFrame.from_ndarray(frame, format="rgb24")
+            vf.pts = pts
+            vf.time_base = time_base
+            return vf
+
+
+    class AvatarAudioTrack(MediaStreamTrack, _PacedTrack):
+        """Streams 20 ms speech PCM packets; silence when idle."""
+
+        kind = "audio"
+
+        def __init__(self, session: "AvatarSession"):
+            super().__init__()
+            self._init_pacing()
+            self.session = session
+
+        async def recv(self):
+            import av
+            pts, time_base = self._next_pts(SAMPLES_PER_PACKET, WEBRTC_SAMPLE_RATE)
+            await self._pace(pts, WEBRTC_SAMPLE_RATE)
+
+            speech = self.session.speech_state
+            if speech is not None:
+                samples = speech.get_audio_packet(pts)
             else:
-                frame = speech.get_video_frame(idx)
+                samples = np.zeros(SAMPLES_PER_PACKET, dtype=np.int16)
 
-        if frame is None:
-            loop = self.session.idle_loop
-            if loop:
-                frame = loop[self._idle_idx % len(loop)]
-                self._idle_idx += 1
-
-        if frame is None:
-            frame = np.zeros((OUTPUT_SIZE[1], OUTPUT_SIZE[0], 3), dtype=np.uint8)
-
-        self._last_frame = frame
-        vf = av.VideoFrame.from_ndarray(frame, format="rgb24")
-        vf.pts = pts
-        vf.time_base = time_base
-        return vf
-
-
-class AvatarAudioTrack(MediaStreamTrack, _PacedTrack):
-    """Streams 20 ms speech PCM packets; silence when idle."""
-
-    kind = "audio"
-
-    def __init__(self, session: "AvatarSession"):
-        super().__init__()
-        self._init_pacing()
-        self.session = session
-
-    async def recv(self):
-        import av
-        pts, time_base = self._next_pts(SAMPLES_PER_PACKET, WEBRTC_SAMPLE_RATE)
-        await self._pace(pts, WEBRTC_SAMPLE_RATE)
-
-        speech = self.session.speech_state
-        if speech is not None:
-            samples = speech.get_audio_packet(pts)
-        else:
-            samples = np.zeros(SAMPLES_PER_PACKET, dtype=np.int16)
-
-        af = av.AudioFrame.from_ndarray(samples.reshape(1, -1), format="s16", layout="mono")
-        af.pts = pts
-        af.time_base = time_base
-        af.sample_rate = WEBRTC_SAMPLE_RATE
-        return af
+            af = av.AudioFrame.from_ndarray(samples.reshape(1, -1), format="s16", layout="mono")
+            af.pts = pts
+            af.time_base = time_base
+            af.sample_rate = WEBRTC_SAMPLE_RATE
+            return af
+else:
+    AvatarVideoTrack = None
+    AvatarAudioTrack = None
 
 
 class SpeechState:

@@ -205,6 +205,37 @@
       z-index: 6;
     }
 
+    /* Live-stream badge over the avatar video */
+    .live-badge {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      z-index: 7;
+      display: none;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(9, 13, 22, 0.65);
+      backdrop-filter: blur(6px);
+      border: 1px solid rgba(244, 63, 94, 0.5);
+      color: #fda4af;
+      font-size: 0.68rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 0.25rem 0.6rem;
+      border-radius: 9999px;
+    }
+
+    .live-badge .live-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #f43f5e;
+      box-shadow: 0 0 8px #f43f5e;
+      animation: pulse 1.1s infinite;
+    }
+
+    .live-badge.visible { display: flex; }
+
     /* Eyelids Overlay */
     .eyelid-left, .eyelid-right {
       position: absolute;
@@ -645,6 +676,9 @@
           <!-- Live WebRTC stream (MuseTalk) — plays synchronized audio+video -->
           <video id="avatarVideo" class="character-video" style="display: none;" playsinline autoplay></video>
 
+          <!-- Live-stream indicator shown while the avatar is speaking -->
+          <div id="liveBadge" class="live-badge"><div class="live-dot"></div>LIVE</div>
+
           <!-- Eyelid Overlay for Natural Blinking -->
           <div id="eyelidL" class="eyelid-left"></div>
           <div id="eyelidR" class="eyelid-right"></div>
@@ -753,6 +787,8 @@
     function setAppState(state, message = "") {
       currentState = state;
       statusDot.className = "status-dot";
+      const liveBadge = document.getElementById("liveBadge");
+      if (liveBadge) liveBadge.classList.toggle("visible", state === "speaking" && rtActive);
 
       if (state === "idle") {
         statusText.textContent = "Character Alive & Idle";

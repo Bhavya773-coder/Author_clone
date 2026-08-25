@@ -5,6 +5,16 @@ Persistent MuseTalk 1.5 Worker
 One process-wide worker that keeps MuseTalk 1.5 loaded in GPU memory and
 turns 16 kHz mono PCM speech into lip-synced RGB frames in real time.
 
+The inference path faithfully follows MuseTalk 1.5's own
+`scripts/realtime_inference.py`:
+
+    audio wav -> Audio2Feature.audio2feat -> feature2chunks(fps)
+              -> datagen(chunks, latents_cycle, batch_size)
+              -> pe(whisper_batch) -> unet -> vae.decode_latents
+              -> resize 256x256 crop to the face bbox from
+                 get_landmark_and_bbox() and blend it back into the
+                 original portrait frame
+
 Design guarantees:
 * Models are loaded EXACTLY ONCE (never reloaded per answer).
 * Portrait preparation is cached per portrait and recomputed only when the
@@ -27,8 +37,10 @@ mouth motion is amplitude-driven, NOT phoneme-accurate).
 import os
 import sys
 import time
+import wave
 import queue
 import logging
+import tempfile
 import threading
 from pathlib import Path
 from typing import Optional, List
@@ -46,6 +58,8 @@ AVATAR_DEVICE = os.environ.get("AVATAR_DEVICE", "cuda:0")
 AVATAR_FP16 = os.environ.get("AVATAR_FP16", "1") == "1"
 TARGET_FPS = int(os.environ.get("AVATAR_TARGET_FPS", "25"))
 MAX_QUEUE = int(os.environ.get("AVATAR_MAX_QUEUE", "3"))
+BATCH_SIZE = int(os.environ.get("AVATAR_BATCH_SIZE", "4"))
+BBOX_SHIFT = int(os.environ.get("AVATAR_BBOX_SHIFT", "0"))
 ENGINE_MODE = os.environ.get("AVATAR_ENGINE_MODE", "musetalk").lower().strip()
 
 AUDIO_SAMPLE_RATE = 16000
@@ -54,6 +68,19 @@ SAMPLES_PER_FRAME = AUDIO_SAMPLE_RATE // TARGET_FPS  # 640 samples/frame @ 25 fp
 
 class GpuUnavailableError(RuntimeError):
     pass
+
+
+def _write_temp_wav(pcm_f32: np.ndarray, sample_rate: int) -> str:
+    """Write float32 PCM to a REAL RIFF/WAV temp file (never raw bytes in .wav)."""
+    pcm_s16 = (np.clip(pcm_f32, -1.0, 1.0) * 32767).astype(np.int16)
+    fd, tmp_wav = tempfile.mkstemp(suffix=".wav")
+    os.close(fd)
+    with wave.open(tmp_wav, "wb") as wf:
+        wf.setnchannels(1)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(pcm_s16.tobytes())
+    return tmp_wav
 
 
 # ---------------------------------------------------------------------------
@@ -69,16 +96,15 @@ class MuseTalkEngine:
         self.vae = None
         self.unet = None
         self.pe = None
-        self.whisper = None
         self.audio_processor = None
         self.timesteps = None
         self.weight_dtype = None
         self.load_time_s: Optional[float] = None
         # cached per-portrait avatar materials
         self._portrait_key: Optional[str] = None
-        self._frame_list: Optional[List[np.ndarray]] = None
-        self._coord_list = None
-        self._latents = None
+        self._base_frame_bgr: Optional[np.ndarray] = None  # full portrait frame (BGR)
+        self._face_bbox = None                             # (x1, y1, x2, y2)
+        self._latents_cycle: Optional[list] = None
 
     # -- loading ----------------------------------------------------------
     def load(self) -> None:
@@ -88,10 +114,9 @@ class MuseTalkEngine:
                 "Clone https://github.com/TMElyralab/MuseTalk and set MUSETALK_PATH."
             )
         try:
-            import torch  # noqa: F401
+            import torch
         except ImportError as e:
             raise GpuUnavailableError(f"PyTorch is not installed: {e}")
-        import torch
         if not torch.cuda.is_available() and AVATAR_DEVICE.startswith("cuda"):
             raise GpuUnavailableError("CUDA is not available to PyTorch on this machine.")
 
@@ -101,8 +126,6 @@ class MuseTalkEngine:
 
         try:
             from musetalk.utils.utils import load_all_model  # MuseTalk 1.5 API
-            from musetalk.whisper.audio2feature import Audio2Feature
-            from transformers import WhisperModel
         except ImportError as e:
             raise GpuUnavailableError(
                 f"Could not import MuseTalk modules from {MUSETALK_PATH}: {e}. "
@@ -113,6 +136,8 @@ class MuseTalkEngine:
         self.weight_dtype = torch.float16 if AVATAR_FP16 else torch.float32
 
         logger.info("Loading MuseTalk 1.5 checkpoints from %s ...", MUSETALK_MODEL_DIR)
+        # load_all_model returns (audio_processor, vae, unet, pe) — same call
+        # signature as MuseTalk's own inference.py / realtime_inference.py
         audio_processor, vae, unet, pe = load_all_model(
             unet_model_path=str(Path(MUSETALK_MODEL_DIR) / "musetalkV15" / "unet.pth"),
             vae_type="sd-vae",
@@ -124,17 +149,12 @@ class MuseTalkEngine:
         self.unet = unet
         self.pe = pe
 
-        whisper_dir = str(Path(MUSETALK_MODEL_DIR) / "whisper")
-        self.whisper = WhisperModel.from_pretrained(whisper_dir)
-        self.whisper = self.whisper.to(device=self.device, dtype=self.weight_dtype)
-        self.whisper.requires_grad_(False)
-
         self.timesteps = torch.tensor([0], device=self.device)
         if AVATAR_FP16:
             self.pe = self.pe.half()
             self.vae.model = self.vae.model.half()
             self.unet.model = self.unet.model.half()
-        for m in (self.pe, self.vae.model, self.unet.model, self.whisper):
+        for m in (self.pe, self.vae.model, self.unet.model):
             m.requires_grad_(False)
 
         self.load_time_s = time.time() - t0
@@ -143,12 +163,14 @@ class MuseTalkEngine:
 
     # -- portrait preparation (cached) ------------------------------------
     def prepare_portrait(self, portrait: Image.Image, portrait_key: str) -> None:
-        """Extract landmarks / latents for the avatar source. Runs only when the portrait changes."""
-        if self._portrait_key == portrait_key and self._latents is not None:
+        """
+        Extract the face bbox + VAE latents for the avatar source, exactly like
+        MuseTalk realtime_inference.py's avatar preparation. Runs only when
+        the portrait changes.
+        """
+        if self._portrait_key == portrait_key and self._latents_cycle is not None:
             return
-        import torch
-        from musetalk.utils.preprocessing import get_landmark_and_bbox, read_imgs, coord_placeholder
-        from musetalk.utils.blending import get_image_prepare_material
+        from musetalk.utils.preprocessing import get_landmark_and_bbox, coord_placeholder
 
         t0 = time.time()
         tmp_dir = PROJECT_ROOT / "web" / "avatar_cache"
@@ -156,31 +178,54 @@ class MuseTalkEngine:
         tmp_img = tmp_dir / "_musetalk_source.png"
         portrait.save(tmp_img)
 
-        bbox_shift = 0  # MuseTalk default; tune for half-body avatars if needed
-        coord_list, frame_list = get_landmark_and_bbox([str(tmp_img)], bbox_shift)
-        if coord_list[0] == coord_placeholder:
+        coord_list, frame_list = get_landmark_and_bbox([str(tmp_img)], BBOX_SHIFT)
+        if not coord_list or coord_list[0] is coord_placeholder or (
+            isinstance(coord_list[0], str) and coord_list[0] == coord_placeholder
+        ):
             raise GpuUnavailableError(
                 "MuseTalk could not detect a face in the prepared portrait. "
                 "Re-upload a clearer front-facing portrait."
             )
-        input_latent_list = []
-        for idx, frame in enumerate(frame_list):
-            coord = coord_list[idx]
-            img_rgb, crop_box = get_image_prepare_material(frame, coord) if callable(get_image_prepare_material) else (frame, None)
-            # MuseTalk 1.5 latents from the VAE
-            resized = np.array(Image.fromarray(frame).resize((256, 256), Image.LANCZOS))
-            tensor = torch.from_numpy(resized).float().permute(2, 0, 1).unsqueeze(0) / 255.0
-            tensor = (tensor * 2 - 1).to(device=self.device, dtype=self.weight_dtype)
-            with torch.inference_mode():
-                latents = self.vae.get_latents_for_unet(tensor) if hasattr(self.vae, "get_latents_for_unet") \
-                    else self.vae.encode(tensor).latent_dist.mode()
-            input_latent_list.append(latents)
 
-        self._frame_list = frame_list
-        self._coord_list = coord_list
-        self._latents = input_latent_list
+        bbox = [int(v) for v in coord_list[0]]
+        frame_bgr = frame_list[0]                      # MuseTalk frames are BGR (cv2)
+        x1, y1, x2, y2 = bbox
+        crop = frame_bgr[y1:y2, x1:x2]
+        if crop.size == 0:
+            raise GpuUnavailableError(
+                f"Invalid face bbox {bbox} for frame shape {frame_bgr.shape}."
+            )
+
+        import cv2
+        resized = cv2.resize(crop, (256, 256), interpolation=cv2.INTER_LANCZOS4)
+        with torch_inference():
+            latents = self.vae.get_latents_for_unet(resized)
+
+        self._base_frame_bgr = frame_bgr.copy()
+        self._face_bbox = bbox
+        self._latents_cycle = [latents]
         self._portrait_key = portrait_key
-        logger.info("Portrait prepared for MuseTalk in %.2fs (%d source frames)", time.time() - t0, len(frame_list))
+        logger.info("Portrait prepared for MuseTalk in %.2fs (bbox=%s, frame=%s)",
+                    time.time() - t0, bbox, frame_bgr.shape)
+
+    # -- blending ----------------------------------------------------------
+    def _blend(self, res_frame: np.ndarray) -> np.ndarray:
+        """
+        Paste a generated 256x256 face crop back into the portrait frame at the
+        detected face bbox. Uses MuseTalk's masked blending when available,
+        otherwise a direct paste (matches offline inference.py behaviour).
+        """
+        x1, y1, x2, y2 = self._face_bbox
+        import cv2
+        res = cv2.resize(res_frame.astype(np.uint8), (x2 - x1, y2 - y1),
+                         interpolation=cv2.INTER_LANCZOS4)
+        out = self._base_frame_bgr.copy()
+        try:
+            from musetalk.utils.blending import get_image
+            out = get_image(out, res, [x1, y1, x2, y2], mode="jaw")
+        except Exception:
+            out[y1:y2, x1:x2] = res
+        return out
 
     # -- streaming inference ----------------------------------------------
     def stream_frames(self, pcm_f32: np.ndarray, frame_queue: "queue.Queue",
@@ -188,81 +233,90 @@ class MuseTalkEngine:
         """
         Consume 16 kHz float32 PCM, emit RGB uint8 frames at TARGET_FPS into
         frame_queue as (frame_index, np.ndarray). Frame index 0 corresponds to
-        PCM sample 0, so the WebRTC layer can align A/V on one timeline.
+        PCM sample 0, so the WebRTC layer aligns A/V on one timeline.
         """
         import torch
-        from musetalk.utils.audio_processor import Audio2Feature  # noqa: F401  (kept for API clarity)
+        from musetalk.utils.utils import datagen
 
-        n_frames = int(np.ceil(len(pcm_f32) / SAMPLES_PER_FRAME))
-        stats["total_frames"] = n_frames
-        first_frame_logged = False
-        t_start = time.time()
-
-        # Process in rolling windows (like MuseTalk realtime_inference.py):
-        # whisper consumes the whole utterance's features; we slice per frame.
-        whisper_chunks = self.audio_processor.audio2feat_from_pcm(pcm_f32, AUDIO_SAMPLE_RATE) \
-            if hasattr(self.audio_processor, "audio2feat_from_pcm") else None
-
-        if whisper_chunks is None:
-            # Standard MuseTalk path: audio_processor.audio2feat expects a file.
-            # Write PCM to a temp wav (valid RIFF, never raw mp3-in-wav) and run the standard API.
-            import wave, tempfile
-            with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tf:
-                tmp_wav = tf.name
+        tmp_wav = _write_temp_wav(pcm_f32, AUDIO_SAMPLE_RATE)
+        try:
+            whisper_input_features, _librosa_length = self.audio_processor.audio2feat(tmp_wav)
+        finally:
             try:
-                pcm_s16 = (np.clip(pcm_f32, -1, 1) * 32767).astype(np.int16)
-                with wave.open(tmp_wav, "wb") as wf:
-                    wf.setnchannels(1)
-                    wf.setsampwidth(2)
-                    wf.setframerate(AUDIO_SAMPLE_RATE)
-                    wf.writeframes(pcm_s16.tobytes())
-                whisper_chunks = self.audio_processor.audio2feat(tmp_wav)
-            finally:
-                try:
-                    os.unlink(tmp_wav)
-                except OSError:
-                    pass
+                os.unlink(tmp_wav)
+            except OSError:
+                pass
 
-        latent = self._latents[0]
-        ref_frame = self._frame_list[0]
+        whisper_chunks = self.audio_processor.feature2chunks(
+            feature_array=whisper_input_features, fps=TARGET_FPS
+        )
+        n_chunks = len(whisper_chunks)
+        n_audio_frames = int(np.ceil(len(pcm_f32) / SAMPLES_PER_FRAME))
+        stats["total_frames"] = n_audio_frames
+        if n_chunks == 0:
+            logger.warning("MuseTalk produced 0 whisper chunks — emitting portrait only")
+            base_rgb = self._base_frame_bgr[:, :, ::-1].copy()
+            for i in range(n_audio_frames):
+                if cancel_event.is_set():
+                    break
+                frame_queue.put((i, base_rgb))
+            return
 
-        for i in range(n_frames):
-            if cancel_event.is_set():
-                stats["cancelled_at_frame"] = i
-                break
-            with torch.inference_mode():
-                chunk = whisper_chunks[min(i, len(whisper_chunks) - 1)]
-                audio_feature = torch.from_numpy(chunk).to(device=self.device, dtype=self.weight_dtype)
-                audio_feature = audio_feature.unsqueeze(0)
-                if audio_feature.dim() == 3:  # (1, T, D) -> (1, 2T, 384) window like MuseTalk
-                    pass
-                audio_feature = self.pe(audio_feature) if audio_feature.dim() == 3 else audio_feature
-                pred_latents = self.unet.model(latent, self.timesteps, encoder_hidden_states=audio_feature).sample
-                recon = self.vae.decode_latents(pred_latents) if hasattr(self.vae, "decode_latents") \
-                    else self.vae.decode(pred_latents).sample
-            frame = (recon[0].detach().float().cpu().numpy().transpose(1, 2, 0) * 255)
-            frame = np.clip(frame, 0, 255).astype(np.uint8)
-            # Composite generated mouth region back onto the prepared portrait frame
-            out = ref_frame.copy()
-            fh, fw = frame.shape[:2]
-            oh, ow = out.shape[:2]
-            y0 = max(0, (oh - fh) // 2)
-            x0 = max(0, (ow - fw) // 2)
-            sub = out[y0:y0 + fh, x0:x0 + fw]
-            if sub.shape[:2] == frame.shape[:2]:
-                out[y0:y0 + fh, x0:x0 + fw] = frame
-            else:
-                out = np.array(Image.fromarray(frame).resize((ow, oh), Image.BILINEAR))
-            frame_queue.put((i, out))
-            if not first_frame_logged:
-                stats["first_frame_latency_s"] = time.time() - t_start
-                first_frame_logged = True
+        t_start = time.time()
+        first_frame_logged = False
+        frame_idx = 0
+        weight_dtype = self.weight_dtype
+        device = self.device
+
+        gen = datagen(whisper_chunks, self._latents_cycle, batch_size=BATCH_SIZE)
+        with torch.inference_mode():
+            for whisper_batch, latent_batch in gen:
+                if cancel_event.is_set():
+                    stats["cancelled_at_frame"] = frame_idx
+                    break
+                audio_feature_batch = torch.from_numpy(whisper_batch).to(
+                    device=device, dtype=weight_dtype)
+                audio_feature_batch = self.pe(audio_feature_batch)
+                latent_batch = latent_batch.to(device=device, dtype=weight_dtype)
+
+                pred_latents = self.unet.model(
+                    latent_batch, self.timesteps,
+                    encoder_hidden_states=audio_feature_batch
+                ).sample
+                recon = self.vae.decode_latents(pred_latents)  # uint8 BGR (B,256,256,3)
+
+                for res_frame in recon:
+                    if cancel_event.is_set():
+                        break
+                    out_bgr = self._blend(res_frame)
+                    out_rgb = out_bgr[:, :, ::-1].copy()
+                    frame_queue.put((frame_idx, out_rgb))
+                    frame_idx += 1
+                    if not first_frame_logged:
+                        stats["first_frame_latency_s"] = time.time() - t_start
+                        first_frame_logged = True
+
+        # If the audio has more frames than whisper chunks (tail padding),
+        # hold the last generated frame for the remainder.
+        if frame_idx < n_audio_frames and not cancel_event.is_set():
+            last_rgb = self._base_frame_bgr[:, :, ::-1].copy() if frame_idx == 0 else out_rgb
+            while frame_idx < n_audio_frames:
+                if cancel_event.is_set():
+                    break
+                frame_queue.put((frame_idx, last_rgb))
+                frame_idx += 1
 
         stats["render_time_s"] = time.time() - t_start
-        if stats.get("render_time_s") and stats.get("total_frames"):
-            stats["fps"] = (stats.get("cancelled_at_frame", n_frames)) / stats["render_time_s"]
-        if self.device.type == "cuda":
-            stats["peak_vram_gb"] = torch.cuda.max_memory_allocated(self.device) / 1e9
+        if stats["render_time_s"] > 0:
+            stats["fps"] = frame_idx / stats["render_time_s"]
+        stats["frames_rendered"] = frame_idx
+        if device.type == "cuda":
+            stats["peak_vram_gb"] = torch.cuda.max_memory_allocated(device) / 1e9
+
+
+def torch_inference():
+    import torch
+    return torch.inference_mode()
 
 
 class DryRunEngine:
@@ -411,6 +465,8 @@ class MuseTalkWorker:
             "device": AVATAR_DEVICE,
             "fp16": AVATAR_FP16,
             "target_fps": TARGET_FPS,
+            "batch_size": BATCH_SIZE,
+            "bbox_shift": BBOX_SHIFT,
             "max_queue": MAX_QUEUE,
             "queue_depth": self.job_queue.qsize(),
             "model_load_time_s": self.engine.load_time_s if self.engine else None,
