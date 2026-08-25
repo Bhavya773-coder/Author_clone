@@ -235,6 +235,16 @@ class MuseTalkEngine:
         frame_queue as (frame_index, np.ndarray). Frame index 0 corresponds to
         PCM sample 0, so the WebRTC layer aligns A/V on one timeline.
         """
+        try:
+            self._stream_frames_inner(pcm_f32, frame_queue, cancel_event, stats)
+        except Exception:
+            import traceback
+            stats["job_error"] = traceback.format_exc(limit=8)
+            logger.error("MuseTalk stream_frames FAILED:\n%s", stats["job_error"])
+            raise
+
+    def _stream_frames_inner(self, pcm_f32: np.ndarray, frame_queue: "queue.Queue",
+                             cancel_event: threading.Event, stats: dict) -> None:
         import torch
         from musetalk.utils.utils import datagen
 
@@ -265,6 +275,12 @@ class MuseTalkEngine:
         t_start = time.time()
         first_frame_logged = False
         frame_idx = 0
+        prev_face = None
+        motion_acc: List[float] = []
+        debug_dump_dir = None
+        if os.environ.get("AVATAR_DEBUG_DUMP_DIR"):
+            debug_dump_dir = Path(os.environ["AVATAR_DEBUG_DUMP_DIR"])
+            debug_dump_dir.mkdir(parents=True, exist_ok=True)
         weight_dtype = self.weight_dtype
         device = self.device
 
@@ -291,6 +307,19 @@ class MuseTalkEngine:
                     out_bgr = self._blend(res_frame)
                     out_rgb = out_bgr[:, :, ::-1].copy()
                     frame_queue.put((frame_idx, out_rgb))
+                    # Motion diagnostic: mean abs diff between consecutive frames
+                    # in the face bbox. ~0 for many frames => MuseTalk output is
+                    # static (broken audio features), which we log loudly.
+                    if prev_face is not None:
+                        x1, y1, x2, y2 = self._face_bbox
+                        face_now = out_bgr[y1:y2, x1:x2]
+                        motion_acc.append(float(np.abs(
+                            face_now.astype(np.int16) - prev_face.astype(np.int16)).mean()))
+                    prev_face = out_bgr[self._face_bbox[1]:self._face_bbox[3],
+                                        self._face_bbox[0]:self._face_bbox[2]].copy()
+                    if debug_dump_dir and frame_idx < 60:
+                        import cv2 as _cv2
+                        _cv2.imwrite(str(debug_dump_dir / f"frame_{frame_idx:04d}.jpg"), out_bgr)
                     frame_idx += 1
                     if not first_frame_logged:
                         stats["first_frame_latency_s"] = time.time() - t_start
@@ -310,6 +339,15 @@ class MuseTalkEngine:
         if stats["render_time_s"] > 0:
             stats["fps"] = frame_idx / stats["render_time_s"]
         stats["frames_rendered"] = frame_idx
+        if motion_acc:
+            stats["motion_mean"] = sum(motion_acc) / len(motion_acc)
+            if len(motion_acc) >= 10 and stats["motion_mean"] < 0.5:
+                logger.error(
+                    "MUSETALK OUTPUT STATIC: mean frame-to-frame diff in face bbox is "
+                    "%.3f over %d frames — the mouth is NOT moving. This means the "
+                    "audio features reaching the UNet are broken (whisper/audio2feat "
+                    "API mismatch), not a display problem.",
+                    stats["motion_mean"], len(motion_acc))
         if device.type == "cuda":
             stats["peak_vram_gb"] = torch.cuda.max_memory_allocated(device) / 1e9
 
@@ -438,16 +476,27 @@ class MuseTalkWorker:
             return False
 
         def _run():
-            with self.gpu_lock:  # only one GPU job at a time
-                t0 = time.time()
-                self.engine.prepare_portrait(portrait, portrait_key)
-                stats["portrait_prepare_s"] = time.time() - t0
-                self.engine.stream_frames(pcm_f32, frame_queue, cancel_event, stats)
-            frame_queue.put(None)  # sentinel: speech finished
+            try:
+                with self.gpu_lock:  # only one GPU job at a time
+                    t0 = time.time()
+                    self.engine.prepare_portrait(portrait, portrait_key)
+                    stats["portrait_prepare_s"] = time.time() - t0
+                    self.engine.stream_frames(pcm_f32, frame_queue, cancel_event, stats)
+            except Exception as e:
+                stats.setdefault("job_error", f"{type(e).__name__}: {e}")
+                logger.error("Speech job crashed: %s", stats["job_error"])
+            finally:
+                # ALWAYS signal completion — otherwise the WebRTC video track
+                # freezes on the last generated frame for the whole utterance.
+                try:
+                    frame_queue.put_nowait(None)
+                except queue.Full:
+                    pass
             logger.info(
-                "Speech job done: first_frame=%.2fs fps=%.1f vram=%.2fGB frames=%s",
+                "Speech job done: first_frame=%.2fs fps=%.1f vram=%.2fGB frames=%s error=%s",
                 stats.get("first_frame_latency_s", -1), stats.get("fps", -1),
                 stats.get("peak_vram_gb", 0), stats.get("cancelled_at_frame", stats.get("total_frames")),
+                stats.get("job_error"),
             )
 
         try:

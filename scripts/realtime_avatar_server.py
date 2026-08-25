@@ -273,12 +273,14 @@ class SpeechState:
         if idx in self.frames:
             return self.frames[idx]
         # hold nearest available earlier frame to avoid flicker when renderer lags
-        if self.frames:
+        if self.frames and not self.generator_done:
             earlier = [k for k in self.frames if k < idx]
             if earlier:
                 return self.frames[max(earlier)]
             return None  # not started yet -> caller shows idle frame
-        return None if not self.generator_done else None
+        # generator finished or crashed: fall back to the idle loop rather
+        # than freezing on a stale frame
+        return None
 
     def get_audio_packet(self, pts: int) -> np.ndarray:
         start = pts
