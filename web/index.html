@@ -236,59 +236,7 @@
 
     .live-badge.visible { display: flex; }
 
-    /* Eyelids Overlay */
-    .eyelid-left, .eyelid-right {
-      position: absolute;
-      width: 38px;
-      height: 0px;
-      background: #caa085;
-      border-radius: 0 0 50% 50%;
-      top: 37.8%;
-      transition: height 0.08s ease-out;
-      box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
-      z-index: 4;
-    }
-
-    .eyelid-left { left: 39%; }
-    .eyelid-right { left: 56.5%; }
-
-    /* Dynamic Viseme Mouth Overlay */
-    .character-mouth-overlay {
-      position: absolute;
-      top: 48.2%;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 44px;
-      height: 4px;
-      background: #2b0b14;
-      border-radius: 40%;
-      box-shadow: inset 0 2px 6px rgba(0,0,0,0.85);
-      z-index: 5;
-      transition: height 0.05s ease-out, width 0.05s ease-out, border-radius 0.05s ease-out;
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: space-between;
-    }
-
-    .mouth-teeth-upper {
-      width: 80%;
-      height: 3px;
-      background: #f8fafc;
-      border-radius: 0 0 2px 2px;
-      opacity: 0;
-      transition: opacity 0.05s ease-out;
-    }
-
-    .mouth-teeth-lower {
-      width: 70%;
-      height: 2px;
-      background: #e2e8f0;
-      border-radius: 2px 2px 0 0;
-      opacity: 0;
-      transition: opacity 0.05s ease-out;
-    }
+    /* (CSS eyelid/mouth overlay fallback removed — MuseTalk renders the real face.) */
 
     /* Character Status Badge */
     .avatar-status-badge {
@@ -678,16 +626,6 @@
 
           <!-- Live-stream indicator shown while the avatar is speaking -->
           <div id="liveBadge" class="live-badge"><div class="live-dot"></div>LIVE</div>
-
-          <!-- Eyelid Overlay for Natural Blinking -->
-          <div id="eyelidL" class="eyelid-left"></div>
-          <div id="eyelidR" class="eyelid-right"></div>
-
-          <!-- Dynamic Lip-Sync Mouth Overlay Fallback -->
-          <div id="characterMouth" class="character-mouth-overlay">
-            <div id="teethUpper" class="mouth-teeth-upper"></div>
-            <div id="teethLower" class="mouth-teeth-lower"></div>
-          </div>
         </div>
       </div>
 
@@ -767,11 +705,6 @@
     const characterWrapper = document.getElementById("characterWrapper");
     const avatarImage = document.getElementById("avatarImage");
     const avatarVideo = document.getElementById("avatarVideo");
-    const characterMouth = document.getElementById("characterMouth");
-    const teethUpper = document.getElementById("teethUpper");
-    const teethLower = document.getElementById("teethLower");
-    const eyelidL = document.getElementById("eyelidL");
-    const eyelidR = document.getElementById("eyelidR");
     const equalizerBar = document.getElementById("equalizerBar");
     const statusDot = document.getElementById("statusDot");
     const statusText = document.getElementById("statusText");
@@ -779,9 +712,7 @@
 
     let mouseX = 0, mouseY = 0;
     let animTime = 0;
-    let isBlinking = false;
-    let blinkTimer = 0;
-    let currentState = "idle"; // loading_avatar, connecting, idle, thinking, generating_speech, speaking, stopped, fallback, error
+    let currentState = "idle"; // loading_avatar, connecting, idle, thinking, generating_speech, speaking, stopped, error
 
     // State Machine UI Updates
     function setAppState(state, message = "") {
@@ -811,8 +742,6 @@
       } else if (state === "stopped") {
         statusText.textContent = "Stopped";
         if (equalizerBar) equalizerBar.style.width = "0%";
-      } else if (state === "fallback") {
-        statusText.textContent = message || "GPU Unavailable — CSS Avatar Fallback";
       } else if (state === "error") {
         statusText.textContent = message || "Notice / Error";
       }
@@ -835,22 +764,7 @@
         characterWrapper.style.transform = `scale(${breathScale}) translateY(${breathY}px) rotateY(${mouseX}deg) rotateX(${-mouseY}deg)`;
       }
 
-      // Natural Eye Blinking
-      blinkTimer += 0.016;
-      if (blinkTimer > 3.2) {
-        isBlinking = true;
-        blinkTimer = 0;
-      }
-
-      if (isBlinking && avatarVideo.style.display === "none") {
-        eyelidL.style.height = "18px";
-        eyelidR.style.height = "18px";
-        setTimeout(() => {
-          eyelidL.style.height = "0px";
-          eyelidR.style.height = "0px";
-          isBlinking = false;
-        }, 120);
-      }
+      // (CSS eyelid/mouth overlays removed — MuseTalk renders the real face.)
     }
     animateCharacterLoop();
 
@@ -872,8 +786,8 @@
       try {
         const caps = await fetch(`${RT_BASE}/api/avatar/capabilities`).then(r => r.json());
         if (!caps.webrtc || !caps.engine || !caps.engine.available) {
-          engineBadge.textContent = "Engine: CSS Fallback (GPU/MuseTalk unavailable)";
-          setAppState("fallback");
+          engineBadge.textContent = "Engine: UNAVAILABLE (GPU/MuseTalk offline)";
+          setAppState("error", "Avatar engine unavailable — start realtime_avatar_server.py, wait for startup, then refresh.");
           return;
         }
         engineBadge.textContent = `Engine: ${caps.engine.engine} @ ${caps.target_fps}fps (Real-Time WebRTC)`;
@@ -885,10 +799,10 @@
         startRtHeartbeat();
         setAppState("idle");
       } catch (e) {
-        console.warn("Real-time avatar init failed, CSS fallback active:", e);
+        console.warn("Real-time avatar init failed (no CSS fallback by design):", e);
         rtActive = false;
-        engineBadge.textContent = "Engine: CSS Fallback (realtime service unreachable)";
-        setAppState("fallback");
+        engineBadge.textContent = "Engine: UNAVAILABLE (realtime service unreachable)";
+        setAppState("error", "Cannot reach the avatar server (port 8001) — start it, wait for startup, then refresh.");
       }
     }
 
@@ -1164,67 +1078,7 @@
     }
 
     function resetCharacterMouthState() {
-      if (characterMouth) {
-        characterMouth.style.height = "4px";
-        characterMouth.style.width = "44px";
-        characterMouth.style.borderRadius = "40%";
-      }
-      if (teethUpper) teethUpper.style.opacity = "0";
-      if (teethLower) teethLower.style.opacity = "0";
       if (equalizerBar) equalizerBar.style.width = "0%";
-    }
-
-    // Web Audio API Amplitude Engine for CSS Lip-Sync Fallback
-    let audioCtx = null;
-    let analyser = null;
-
-    function attachCharacterLipSync(audioElement) {
-      try {
-        if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        if (audioCtx.state === 'suspended') audioCtx.resume();
-
-        const source = audioCtx.createMediaElementSource(audioElement);
-        analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 256;
-        source.connect(analyser);
-        analyser.connect(audioCtx.destination);
-
-        const bufferLength = analyser.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-
-        setAppState("speaking", "Speaking (Web Audio Lip-Sync)...");
-
-        function updateLipSyncFrame() {
-          if (audioElement && !audioElement.paused && !audioElement.ended) {
-            analyser.getByteFrequencyData(dataArray);
-
-            let sum = 0;
-            for (let i = 0; i < bufferLength; i++) sum += dataArray[i];
-            let avg = sum / bufferLength;
-            let norm = Math.min(1.0, avg / 45.0);
-
-            const mHeight = Math.max(4, norm * 22);
-            const mWidth = 44 + norm * 14;
-
-            if (characterMouth && avatarVideo.style.display === "none") {
-              characterMouth.style.height = `${mHeight}px`;
-              characterMouth.style.width = `${mWidth}px`;
-            }
-
-            if (teethUpper) teethUpper.style.opacity = norm > 0.2 ? "0.9" : "0";
-            if (teethLower) teethLower.style.opacity = norm > 0.4 ? "0.7" : "0";
-            if (equalizerBar) equalizerBar.style.width = `${Math.min(100, norm * 110)}%`;
-
-            requestAnimationFrame(updateLipSyncFrame);
-          } else {
-            resetCharacterMouthState();
-            if (currentState === "speaking") setAppState("idle");
-          }
-        }
-        updateLipSyncFrame();
-      } catch (e) {
-        console.warn("Web Audio Context note:", e);
-      }
     }
 
     // Poll Avatar Job Status
@@ -1259,59 +1113,14 @@
       if ('speechSynthesis' in window) window.speechSynthesis.cancel();
       resetCharacterMouthState();
 
-      // Preferred path: persistent MuseTalk + WebRTC (audio+video on one timeline)
+      // MuseTalk + WebRTC is the ONLY speech path — the fake CSS-mouth
+      // fallback was removed by design: if the real engine cannot speak,
+      // say so clearly instead of pretending with a 2D overlay.
       if (rtActive && await speakRealtime(text)) return;
 
-      // Fallback path: /api/tts audio + CSS lip-sync (server reuses cached TTS audio)
-      setAppState("generating_speech");
-      fetch("/api/tts", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ text: text, voice: voiceSelect.value }) })
-      .then(res => {
-        if (res.headers.get("Content-Type")?.includes("json")) {
-          return res.json().then(data => {
-            fallbackBrowserTTS(text);
-          });
-        }
-        return res.blob().then(blob => {
-          currentAudio = new Audio(URL.createObjectURL(blob));
-          currentAudio.onplay = () => {
-            if (isAvatarEnabled) attachCharacterLipSync(currentAudio);
-          };
-          currentAudio.onended = () => {
-            resetCharacterMouthState();
-            setAppState("idle");
-          };
-          currentAudio.play().catch(e => console.warn(e));
-
-          if (avatarJobId) checkAvatarJobStatus(avatarJobId);
-        });
-      })
-      .catch(() => fallbackBrowserTTS(text));
-    }
-
-    function fallbackBrowserTTS(text) {
-      if (!('speechSynthesis' in window)) return;
-      setAppState("speaking", "Speaking (Browser Voice)...");
-      const cleanText = text.replace(/\[(?:Source:|[Book"\w\s\-]+,?\s*p\.\d+[^\]]*)\]/gi, "").replace(/[\*\#\_`]/g, "");
-      const u = new SpeechSynthesisUtterance(cleanText);
-      u.onstart = () => { if (isAvatarEnabled) simulateLipSyncFallback(); };
-      u.onend = () => { resetCharacterMouthState(); setAppState("idle"); };
-      window.speechSynthesis.speak(u);
-    }
-
-    function simulateLipSyncFallback() {
-      let toggle = false;
-      const interval = setInterval(() => {
-        if (window.speechSynthesis.speaking) {
-          toggle = !toggle;
-          if (characterMouth) {
-            characterMouth.style.height = toggle ? "18px" : "4px";
-            characterMouth.style.width = toggle ? "54px" : "44px";
-          }
-        } else {
-          clearInterval(interval);
-          resetCharacterMouthState();
-        }
-      }, 120);
+      setAppState("error", rtActive
+        ? "Voice engine hiccup — please try again."
+        : "Real-time avatar not connected — start realtime_avatar_server.py (port 8001), wait for startup, then refresh.");
     }
 
     function handleKeyPress(e) { if (e.key === "Enter") submitMessage(); }

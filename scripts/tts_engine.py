@@ -77,18 +77,26 @@ def generate_tts_audio(text: str, voice: str = None, provider: str = None) -> tu
                         audio_data.extend(chunk["data"])
                 return bytes(audio_data)
 
-            # Handle event loop safely across main and worker threads
-            try:
-                loop = asyncio.get_event_loop()
-                if loop.is_running():
-                    # If running in another loop, use run_until_complete in executor or new loop
-                    new_loop = asyncio.new_event_loop()
-                    audio_bytes = new_loop.run_until_complete(_edge_synth())
-                    new_loop.close()
-                else:
-                    audio_bytes = loop.run_until_complete(_edge_synth())
-            except RuntimeError:
-                audio_bytes = asyncio.run(_edge_synth())
+            # edge-tts is asyncio-based, but this function is also called from
+            # inside ALREADY-RUNNING event loops (FastAPI endpoints), where
+            # neither asyncio.run() nor loop.run_until_complete() is legal in
+            # the calling thread. Running the coroutine in a dedicated thread
+            # with its OWN event loop works from every calling context.
+            import threading
+            holder: dict = {}
+
+            def _synth_in_thread():
+                try:
+                    holder["audio"] = asyncio.run(_edge_synth())
+                except BaseException as exc:  # network/SSL errors etc.
+                    holder["error"] = exc
+
+            synth_thread = threading.Thread(target=_synth_in_thread, daemon=True)
+            synth_thread.start()
+            synth_thread.join(timeout=60)
+            if "error" in holder:
+                raise holder["error"]
+            audio_bytes = holder.get("audio", b"")
 
             if audio_bytes and len(audio_bytes) > 0:
                 return audio_bytes, "audio/mpeg"
