@@ -235,6 +235,18 @@ def preprocess_portrait(
     box = compute_avatar_crop(img.size, face_box, manual_offset, manual_zoom)
     processed = apply_crop(img, box)
 
+    # Map eye centres from source-image coordinates into the processed
+    # 512x640 crop, so downstream animators (idle loop, speech blink layer)
+    # can use them directly on the avatar frames.
+    eyes_processed = None
+    if eyes:
+        x0, y0, x1, y1 = box
+        sx = OUTPUT_SIZE[0] / (x1 - x0)
+        sy = OUTPUT_SIZE[1] / (y1 - y0)
+        eyes_processed = tuple(
+            (int(round((ex - x0) * sx)), int(round((ey - y0) * sy))) for ex, ey in eyes
+        )
+
     warnings = []
     fx, fy, fw, fh = face_box
     if fw < img.size[0] * 0.12:
@@ -246,7 +258,8 @@ def preprocess_portrait(
         "image": processed,
         "face_box": face_box,
         "crop_box": box,
-        "eyes": eyes,
+        "eyes": eyes_processed,       # coordinates in the processed 512x640 crop
+        "eyes_source": eyes,          # coordinates in the original upload
         "warnings": warnings,
         "source_size": img.size,
     }

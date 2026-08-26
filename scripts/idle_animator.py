@@ -27,16 +27,30 @@ TARGET_FPS = int(os.environ.get("AVATAR_TARGET_FPS", "25"))
 IDLE_LOOP_SECONDS = float(os.environ.get("AVATAR_IDLE_LOOP_SECONDS", "12"))
 
 
+# Safety zoom so sub-pixel motion NEVER samples outside the source frame.
+# Out-of-bounds samples come back black from PIL and paint dark "lines" along
+# the frame edges — this margin (plus the clamps below) eliminates them.
+_BASE_ZOOM = 1.03
+
+
 def _warp_frame(img: np.ndarray, dy: float, scale: float, sway_x: float) -> np.ndarray:
     """
     Sub-pixel affine transform (centre-anchored scale + translate) for
     breathing/sway. Float precision keeps the loop perfectly seamless —
     integer-pixel shifts would break the wrap.
+
+    The effective zoom is always >= _BASE_ZOOM and translations are clamped
+    to the margin that zoom provides, so sampling stays inside the image.
     """
     pil = Image.fromarray(img)
     w, h = pil.size
     cx, cy = w / 2.0, h / 2.0
-    s = max(scale, 1e-6)
+    s = max(scale, 1.0) * _BASE_ZOOM
+    # Clamp translation to ~80% of the zoom margin so we never sample outside.
+    mx = (s - 1.0) / 2.0 * w * 0.8
+    my = (s - 1.0) / 2.0 * h * 0.8
+    dy = float(min(max(dy, -my), my))
+    sway_x = float(min(max(sway_x, -mx), mx))
     # output (x, y) samples input at ((x-cx)/s + cx - sway_x, (y-cy)/s + cy - dy)
     a, b, c = 1.0 / s, 0.0, cx - cx / s - sway_x
     d, e, f = 0.0, 1.0 / s, cy - cy / s - dy
@@ -47,44 +61,60 @@ def _warp_frame(img: np.ndarray, dy: float, scale: float, sway_x: float) -> np.n
 def _apply_blink(img: np.ndarray, eye_y: int, eye_half_h: int, closedness: float,
                  eye_x_range: Tuple[int, int]) -> np.ndarray:
     """
-    Vertical squash of the eye band to simulate an eyelid closing.
+    Feathered vertical squash of the eye region to simulate an eyelid closing.
     closedness: 0.0 (open) .. 1.0 (closed).
+
+    The squashed band is blended back with a raised-cosine weight that falls
+    to zero at the band edges, so there is no visible seam (the old hard-edged
+    rectangle is what made blinks look like flat "2D" cut-outs). Darkening is
+    gentle and follows the same weight, so it also fades out at the edges.
     """
     if closedness <= 0.0:
         return img
     h, w = img.shape[:2]
-    y0 = max(0, eye_y - eye_half_h)
-    y1 = min(h, eye_y + eye_half_h)
-    if y1 - y0 < 4:
+    pad = max(3, eye_half_h // 2)
+    y0 = max(0, eye_y - eye_half_h - pad)
+    y1 = min(h, eye_y + eye_half_h + pad)
+    if y1 - y0 < 6:
         return img
     x0, x1 = max(0, eye_x_range[0]), min(w, eye_x_range[1])
+    if x1 - x0 < 6:
+        return img
     band = img[y0:y1, x0:x1].astype(np.float32)
     band_h = band.shape[0]
-    # Compress rows toward the band centre and darken lid rows slightly
     centre = band_h / 2.0
+    squash = max(1e-6, 1.0 - 0.85 * closedness)
     out = np.empty_like(band)
     for r in range(band_h):
-        src = centre + (r - centre) / max(1e-6, (1.0 - 0.85 * closedness))
-        src = min(max(src, 0), band_h - 1)
+        src = centre + (r - centre) / squash
+        src = min(max(src, 0.0), band_h - 1.0)
         r0 = int(src)
         r1 = min(r0 + 1, band_h - 1)
         frac = src - r0
-        out[r] = band[r0] * (1 - frac) + band[r1] * frac
-    # slight darkening of lid skin as it closes
-    lid_mask = np.abs(np.arange(band_h) - centre) / centre
-    out *= (1.0 - 0.12 * closedness * lid_mask[:, None, None])
+        out[r] = band[r0] * (1.0 - frac) + band[r1] * frac
+    # Raised-cosine vertical weight: 0 at band edges -> 1 at the centre.
+    rows = np.arange(band_h, dtype=np.float32)
+    wy = np.sin(np.pi * (rows + 0.5) / band_h) ** 2
+    wy3 = wy[:, None, None]
+    # Very slight lid shading, feathered identically so it can't seam.
+    out *= (1.0 - 0.05 * closedness * wy3)
+    blended = band * (1.0 - wy3) + out * wy3
     img = img.copy()
-    img[y0:y1, x0:x1] = out.astype(np.uint8)
+    img[y0:y1, x0:x1] = np.clip(blended, 0, 255).astype(np.uint8)
     return img
 
 
 def _blink_envelope(phase: float) -> float:
-    """Triangle-ish blink envelope: phase 0..1 -> closedness 0..1..0."""
-    if phase < 0.35:
-        return phase / 0.35
-    if phase < 0.5:
-        return 1.0
-    return max(0.0, 1.0 - (phase - 0.5) / 0.5)
+    """Smooth blink curve: fast close, short hold, soft open (no kinks)."""
+    phase = min(max(phase, 0.0), 1.0)
+    return float(np.sin(np.pi * phase) ** 0.8)
+
+
+# Public aliases — reused by the MuseTalk worker's speech animation layer so
+# the whole frame stays alive (sway + blinking) while the avatar talks.
+warp_frame = _warp_frame
+apply_blink = _apply_blink
+blink_envelope = _blink_envelope
 
 
 def build_idle_loop(

@@ -864,6 +864,9 @@
     let speakInFlight = false;   // prevents overlapping speech jobs
     let idleTimer = null;
 
+    let rtHeartbeat = null;
+    let rtReconnecting = false;
+
     async function initRealtimeAvatar() {
       setAppState("loading_avatar");
       try {
@@ -875,15 +878,48 @@
         }
         engineBadge.textContent = `Engine: ${caps.engine.engine} @ ${caps.target_fps}fps (Real-Time WebRTC)`;
         const s = await fetch(`${RT_BASE}/api/avatar/session`, { method: "POST" }).then(r => r.json());
+        if (!s.session_id) throw new Error(`session creation failed: ${s.detail || "no session_id"}`);
         rtSessionId = s.session_id;
         await connectWebRTC();
         rtActive = true;
+        startRtHeartbeat();
         setAppState("idle");
       } catch (e) {
         console.warn("Real-time avatar init failed, CSS fallback active:", e);
+        rtActive = false;
         engineBadge.textContent = "Engine: CSS Fallback (realtime service unreachable)";
         setAppState("fallback");
       }
+    }
+
+    // Rebuild the whole session (server may have restarted or expired it),
+    // guarding against overlapping reconnect attempts.
+    async function reconnectRealtime() {
+      if (rtReconnecting) return;
+      rtReconnecting = true;
+      stopRtHeartbeat();
+      try { await initRealtimeAvatar(); }
+      finally { rtReconnecting = false; }
+    }
+
+    // Keep the server-side session alive (it expires after inactivity) and
+    // detect silently-lost sessions so the avatar self-heals.
+    function startRtHeartbeat() {
+      stopRtHeartbeat();
+      rtHeartbeat = setInterval(async () => {
+        if (!rtActive || !rtSessionId || speakInFlight) return;
+        try {
+          const r = await fetch(`${RT_BASE}/api/avatar/session/${rtSessionId}/stats`);
+          if (r.status === 404) {
+            console.warn("Avatar session lost (expired or server restarted) — reconnecting...");
+            await reconnectRealtime();
+          }
+        } catch (_) { /* transient network error — keep trying */ }
+      }, 45000);
+    }
+
+    function stopRtHeartbeat() {
+      if (rtHeartbeat) { clearInterval(rtHeartbeat); rtHeartbeat = null; }
     }
 
     async function connectWebRTC() {
@@ -910,8 +946,8 @@
 
       rtPC.onconnectionstatechange = async () => {
         if (["failed", "disconnected"].includes(rtPC.connectionState) && rtActive) {
-          console.warn("WebRTC interrupted — reconnecting...");
-          try { await connectWebRTC(); } catch (e) { rtActive = false; setAppState("fallback"); }
+          console.warn("WebRTC interrupted — full session reconnect...");
+          await reconnectRealtime();   // fresh session AND peer connection
         }
       };
 
@@ -925,7 +961,7 @@
       await rtPC.setRemoteDescription(await ans.json());
     }
 
-    async function speakRealtime(text) {
+    async function speakRealtime(text, retried = false) {
       if (!rtActive || !rtSessionId) return false;
       if (speakInFlight) await stopRealtime();   // cancel previous answer
       speakInFlight = true;
@@ -937,7 +973,15 @@
         });
         if (!res.ok) {
           if (res.status === 503) { rtActive = false; setAppState("fallback"); return false; }
-          throw new Error(`speak failed: ${res.status}`);
+          if (res.status === 404 && !retried) {
+            // Session expired or server restarted — rebuild it and retry ONCE
+            console.warn("speak: session unknown — reconnecting and retrying...");
+            speakInFlight = false;
+            await reconnectRealtime();
+            return await speakRealtime(text, true);
+          }
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.detail || `speak failed: ${res.status}`);
         }
         const data = await res.json();
         setAppState("speaking", "Speaking (MuseTalk Real-Time)...");
@@ -948,6 +992,12 @@
         return true;
       } catch (e) {
         console.warn("speakRealtime error:", e);
+        if (!retried) {
+          speakInFlight = false;
+          await reconnectRealtime();           // one self-heal attempt
+          if (rtActive) return await speakRealtime(text, true);
+        }
+        setAppState("error", `Voice engine hiccup — ${e.message}. Please try again.`);
         return false;
       } finally {
         speakInFlight = false;
@@ -962,6 +1012,7 @@
     }
 
     window.addEventListener("beforeunload", () => {
+      stopRtHeartbeat();
       if (rtPC) try { rtPC.close(); } catch (_) {}
       if (rtSessionId) {
         try { fetch(`${RT_BASE}/api/avatar/session/${rtSessionId}`, { method: "DELETE", keepalive: true }); } catch (_) {}

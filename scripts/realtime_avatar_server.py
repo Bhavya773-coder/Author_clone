@@ -66,7 +66,7 @@ DEFAULT_PORTRAIT_PATH = Path(os.environ.get(
     "AVATAR_PORTRAIT", str(PROJECT_ROOT / "web" / "avatar_character.jpg"))).resolve()
 ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
     "AVATAR_ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",") if o.strip()]
-SESSION_TTL_S = int(os.environ.get("AVATAR_SESSION_TTL_S", "900"))
+SESSION_TTL_S = int(os.environ.get("AVATAR_SESSION_TTL_S", "3600"))
 MAX_SPEECH_CHARS = int(os.environ.get("AVATAR_MAX_SPEECH_CHARS", "5000"))
 WEBRTC_SAMPLE_RATE = 48000
 SAMPLES_PER_PACKET = 960          # 20 ms @ 48 kHz
@@ -333,7 +333,8 @@ class AvatarSession:
                            "t_enqueued": time.time()}
             portrait = get_current_portrait()
             ok = WORKER.submit_speak(portrait["image"], portrait["key"],
-                                      pcm16k, frame_queue, cancel_event, stats)
+                                      pcm16k, frame_queue, cancel_event, stats,
+                                      eyes=portrait.get("eyes"))
             if not ok:
                 raise HTTPException(status_code=503,
                                     detail="Avatar engine unavailable or queue full — use CSS fallback.")

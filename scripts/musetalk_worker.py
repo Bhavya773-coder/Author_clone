@@ -48,6 +48,8 @@ from typing import Optional, List
 import numpy as np
 from PIL import Image
 
+from idle_animator import warp_frame, apply_blink, blink_envelope
+
 logger = logging.getLogger("MuseTalkWorker")
 
 PROJECT_ROOT = Path(__file__).parent.parent.resolve()
@@ -61,6 +63,9 @@ MAX_QUEUE = int(os.environ.get("AVATAR_MAX_QUEUE", "3"))
 BATCH_SIZE = int(os.environ.get("AVATAR_BATCH_SIZE", "4"))
 BBOX_SHIFT = int(os.environ.get("AVATAR_BBOX_SHIFT", "0"))
 ENGINE_MODE = os.environ.get("AVATAR_ENGINE_MODE", "musetalk").lower().strip()
+# Whole-frame animation layer during speech (sway + blinking) — makes the
+# entire portrait subtly alive instead of a frozen photo with moving lips.
+HEAD_MOTION = os.environ.get("AVATAR_HEAD_MOTION", "1") == "1"
 
 AUDIO_SAMPLE_RATE = 16000
 SAMPLES_PER_FRAME = AUDIO_SAMPLE_RATE // TARGET_FPS  # 640 samples/frame @ 25 fps
@@ -105,6 +110,8 @@ class MuseTalkEngine:
         self._base_frame_bgr: Optional[np.ndarray] = None  # full portrait frame (BGR)
         self._face_bbox = None                             # (x1, y1, x2, y2)
         self._latents_cycle: Optional[list] = None
+        self._eyes = None        # eye centres in processed-crop coordinates
+        self._blink_rng = np.random.default_rng(7)
 
     # -- loading ----------------------------------------------------------
     def load(self) -> None:
@@ -162,12 +169,16 @@ class MuseTalkEngine:
         logger.info("MuseTalk loaded in %.1fs (peak VRAM so far: %.2f GB)", self.load_time_s, vram)
 
     # -- portrait preparation (cached) ------------------------------------
-    def prepare_portrait(self, portrait: Image.Image, portrait_key: str) -> None:
+    def prepare_portrait(self, portrait: Image.Image, portrait_key: str,
+                         eyes: Optional[tuple] = None) -> None:
         """
         Extract the face bbox + VAE latents for the avatar source, exactly like
         MuseTalk realtime_inference.py's avatar preparation. Runs only when
-        the portrait changes.
+        the portrait changes. `eyes` (processed-crop coordinates) are cached
+        for the speech blink layer and may be refreshed without re-preparing.
         """
+        if eyes is not None:
+            self._eyes = eyes
         if self._portrait_key == portrait_key and self._latents_cycle is not None:
             return
         from musetalk.utils.preprocessing import get_landmark_and_bbox, coord_placeholder
@@ -227,6 +238,53 @@ class MuseTalkEngine:
             out[y1:y2, x1:x2] = res
         return out
 
+    # -- whole-frame speech animation (sway + blinking) --------------------
+    def _build_blink_schedule(self, seconds: float) -> List[float]:
+        """Deterministic irregular blink start times for one utterance."""
+        rng = np.random.default_rng(7)
+        starts = []
+        t = float(rng.uniform(0.8, 2.2))
+        while t < seconds:
+            starts.append(t)
+            t += float(rng.uniform(2.2, 5.0))
+        return starts
+
+    def _animate_frame(self, rgb: np.ndarray, frame_idx: int,
+                       blink_starts: List[float]) -> np.ndarray:
+        """
+        Make the WHOLE frame subtly alive while MuseTalk drives the mouth:
+        * gentle continuous sway/breathing over the entire image (shoulders,
+          hat, background) via a sub-pixel affine warp,
+        * natural irregular blinking at the detected eye positions.
+        Amplitudes are deliberately tiny — no exaggerated movement.
+        """
+        if not HEAD_MOTION:
+            return rgb
+        h, w = rgb.shape[:2]
+        t = frame_idx / TARGET_FPS
+        # slow weight-shift: two low frequencies, sub-pixel amplitudes
+        dy = (np.sin(2 * np.pi * 0.18 * t) * 0.7 + np.sin(2 * np.pi * 0.07 * t) * 0.5) * (h * 0.0018)
+        sway_x = np.sin(2 * np.pi * 0.11 * t + 1.3) * (w * 0.0016)
+        scale = 1.0 + np.sin(2 * np.pi * 0.18 * t + 0.6) * 0.0015
+        frame = warp_frame(rgb, dy, scale, sway_x)
+
+        # blinking
+        blink_dur = 0.24
+        for bs in blink_starts:
+            if bs <= t < bs + blink_dur:
+                closed = blink_envelope((t - bs) / blink_dur)
+                if self._eyes:
+                    eye_y = (self._eyes[0][1] + self._eyes[1][1]) // 2
+                    ex = sorted(e[0] for e in self._eyes)
+                    margin = max(14, (ex[1] - ex[0]) // 3)
+                    eye_x_range = (max(0, ex[0] - margin), min(w, ex[1] + margin))
+                else:
+                    eye_y = int(h * 0.38)
+                    eye_x_range = (int(w * 0.28), int(w * 0.72))
+                frame = apply_blink(frame, eye_y, max(6, int(h * 0.02)), closed, eye_x_range)
+                break
+        return frame
+
     # -- streaming inference ----------------------------------------------
     def stream_frames(self, pcm_f32: np.ndarray, frame_queue: "queue.Queue",
                       cancel_event: threading.Event, stats: dict) -> None:
@@ -277,6 +335,7 @@ class MuseTalkEngine:
         frame_idx = 0
         prev_face = None
         motion_acc: List[float] = []
+        blink_starts = self._build_blink_schedule(n_audio_frames / TARGET_FPS)
         debug_dump_dir = None
         if os.environ.get("AVATAR_DEBUG_DUMP_DIR"):
             debug_dump_dir = Path(os.environ["AVATAR_DEBUG_DUMP_DIR"])
@@ -306,6 +365,7 @@ class MuseTalkEngine:
                         break
                     out_bgr = self._blend(res_frame)
                     out_rgb = out_bgr[:, :, ::-1].copy()
+                    out_rgb = self._animate_frame(out_rgb, frame_idx, blink_starts)
                     frame_queue.put((frame_idx, out_rgb))
                     # Motion diagnostic: mean abs diff between consecutive frames
                     # in the face bbox. ~0 for many frames => MuseTalk output is
@@ -326,13 +386,14 @@ class MuseTalkEngine:
                         first_frame_logged = True
 
         # If the audio has more frames than whisper chunks (tail padding),
-        # hold the last generated frame for the remainder.
+        # hold the last generated mouth frame but KEEP the whole-frame
+        # animation running so the avatar never freezes mid-utterance.
         if frame_idx < n_audio_frames and not cancel_event.is_set():
             last_rgb = self._base_frame_bgr[:, :, ::-1].copy() if frame_idx == 0 else out_rgb
             while frame_idx < n_audio_frames:
                 if cancel_event.is_set():
                     break
-                frame_queue.put((frame_idx, last_rgb))
+                frame_queue.put((frame_idx, self._animate_frame(last_rgb.copy(), frame_idx, blink_starts)))
                 frame_idx += 1
 
         stats["render_time_s"] = time.time() - t_start
@@ -467,7 +528,8 @@ class MuseTalkWorker:
     # -- API used by the session layer ------------------------------------
     def submit_speak(self, portrait: Image.Image, portrait_key: str,
                      pcm_f32: np.ndarray, frame_queue: "queue.Queue",
-                     cancel_event: threading.Event, stats: dict) -> bool:
+                     cancel_event: threading.Event, stats: dict,
+                     eyes: Optional[tuple] = None) -> bool:
         """
         Enqueue a speech job. Returns False immediately if the bounded queue is
         full (caller must prevent overlapping speech anyway).
@@ -479,7 +541,7 @@ class MuseTalkWorker:
             try:
                 with self.gpu_lock:  # only one GPU job at a time
                     t0 = time.time()
-                    self.engine.prepare_portrait(portrait, portrait_key)
+                    self.engine.prepare_portrait(portrait, portrait_key, eyes=eyes)
                     stats["portrait_prepare_s"] = time.time() - t0
                     self.engine.stream_frames(pcm_f32, frame_queue, cancel_event, stats)
             except Exception as e:
@@ -516,6 +578,7 @@ class MuseTalkWorker:
             "target_fps": TARGET_FPS,
             "batch_size": BATCH_SIZE,
             "bbox_shift": BBOX_SHIFT,
+            "head_motion": HEAD_MOTION,
             "max_queue": MAX_QUEUE,
             "queue_depth": self.job_queue.qsize(),
             "model_load_time_s": self.engine.load_time_s if self.engine else None,
