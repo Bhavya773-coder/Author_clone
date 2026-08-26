@@ -143,14 +143,33 @@ class MuseTalkEngine:
         self.weight_dtype = torch.float16 if AVATAR_FP16 else torch.float32
 
         logger.info("Loading MuseTalk 1.5 checkpoints from %s ...", MUSETALK_MODEL_DIR)
-        # load_all_model returns (audio_processor, vae, unet, pe) — same call
-        # signature as MuseTalk's own inference.py / realtime_inference.py
-        audio_processor, vae, unet, pe = load_all_model(
+        # load_all_model's return arity differs between MuseTalk versions:
+        #   1.5-style: (audio_processor, vae, unet, pe)
+        #   1.0-style: (vae, unet, pe)  — audio processor built separately
+        # Accept both so the loader works with either checkout.
+        result = load_all_model(
             unet_model_path=str(Path(MUSETALK_MODEL_DIR) / "musetalkV15" / "unet.pth"),
             vae_type="sd-vae",
             unet_config=str(Path(MUSETALK_MODEL_DIR) / "musetalkV15" / "musetalk.json"),
             device=self.device,
         )
+        vals = list(result)
+        if len(vals) == 4:
+            audio_processor, vae, unet, pe = vals
+        elif len(vals) == 3:
+            vae, unet, pe = vals
+            from musetalk.utils.audio_processor import AudioProcessor
+            whisper_dir = Path(MUSETALK_MODEL_DIR) / "whisper"
+            audio_processor = AudioProcessor(
+                feature_extractor_path=str(whisper_dir) if whisper_dir.exists() else "openai/whisper-tiny"
+            )
+            logger.info("MuseTalk 1.0-style load_all_model detected — "
+                        "AudioProcessor built from %s", whisper_dir if whisper_dir.exists() else "openai/whisper-tiny")
+        else:
+            raise GpuUnavailableError(
+                f"Unexpected load_all_model() return: {len(vals)} values "
+                "(expected 3 or 4). Check your MuseTalk checkout version."
+            )
         self.audio_processor = audio_processor
         self.vae = vae
         self.unet = unet
