@@ -125,13 +125,13 @@ def get_current_portrait() -> dict:
 # ---------------------------------------------------------------------------
 # WebRTC tracks — one shared timeline for audio & video
 # ---------------------------------------------------------------------------
-try:
-    import av  # noqa: F401
-    from aiortc import MediaStreamTrack  # noqa: F401
-    _AIORTC_AVAILABLE = True
-except ImportError:
-    _AIORTC_AVAILABLE = False
-    MediaStreamTrack = object  # type: ignore
+# NOTE: av/aiortc are deliberately NOT imported at module scope. On Windows,
+# loading PyAV's FFmpeg C-runtime DLLs before PyTorch initializes CUDA can
+# crash the process silently (exit code 1) while MuseTalk checkpoints load.
+# _init_webrtc() imports them AFTER the engine is up (called from startup).
+_AIORTC_AVAILABLE = False
+AvatarVideoTrack = None
+AvatarAudioTrack = None
 
 
 def _require_aiortc():
@@ -160,8 +160,25 @@ class _PacedTrack:
             await asyncio.sleep(delay)
 
 
-if _AIORTC_AVAILABLE:
-    class AvatarVideoTrack(MediaStreamTrack, _PacedTrack):
+def _init_webrtc() -> bool:
+    """Import av/aiortc and define the WebRTC track classes.
+
+    MUST run only AFTER the MuseTalk engine has loaded: on Windows, importing
+    PyAV's FFmpeg C-runtime DLLs before PyTorch initializes CUDA crashes the
+    process silently (exit code 1) during checkpoint loading. Called once
+    from the startup handler, after WORKER.start().
+    """
+    global _AIORTC_AVAILABLE, AvatarVideoTrack, AvatarAudioTrack
+    if _AIORTC_AVAILABLE:
+        return True
+    try:
+        import av  # noqa: F401
+        from aiortc import MediaStreamTrack
+    except ImportError:
+        logger.error("aiortc/PyAV not installed — WebRTC endpoints will fail. pip install aiortc av")
+        return False
+
+    class _AvatarVideoTrack(MediaStreamTrack, _PacedTrack):
         """Streams idle-loop frames, switching to MuseTalk frames during speech."""
 
         kind = "video"
@@ -210,7 +227,7 @@ if _AIORTC_AVAILABLE:
             return vf
 
 
-    class AvatarAudioTrack(MediaStreamTrack, _PacedTrack):
+    class _AvatarAudioTrack(MediaStreamTrack, _PacedTrack):
         """Streams 20 ms speech PCM packets; silence when idle."""
 
         kind = "audio"
@@ -236,9 +253,11 @@ if _AIORTC_AVAILABLE:
             af.time_base = time_base
             af.sample_rate = WEBRTC_SAMPLE_RATE
             return af
-else:
-    AvatarVideoTrack = None
-    AvatarAudioTrack = None
+
+    AvatarVideoTrack = _AvatarVideoTrack
+    AvatarAudioTrack = _AvatarAudioTrack
+    _AIORTC_AVAILABLE = True
+    return True
 
 
 class SpeechState:
@@ -439,11 +458,10 @@ async def _startup():
     if not REALTIME_AVATAR_ENABLED:
         logger.warning("REALTIME_AVATAR_ENABLED=0 — service running in disabled mode.")
         return
-    if not _require_aiortc():
-        logger.error("aiortc/PyAV not installed — WebRTC endpoints will fail. pip install aiortc av")
     t0 = time.time()
-    WORKER.start()   # loads MuseTalk ONCE
+    WORKER.start()   # loads MuseTalk ONCE — MUST happen before av/aiortc import
     logger.info("Avatar worker start-up took %.1fs (available=%s)", time.time() - t0, WORKER.available)
+    _init_webrtc()   # safe now: PyTorch/CUDA is fully initialized
     try:
         get_current_portrait()   # pre-process default portrait at startup
     except PortraitError as e:
