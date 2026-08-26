@@ -104,6 +104,7 @@ class MuseTalkEngine:
         self.audio_processor = None
         self.timesteps = None
         self.weight_dtype = None
+        self._unet_module = None   # resolved inner torch module (version-tolerant)
         self.load_time_s: Optional[float] = None
         # cached per-portrait avatar materials
         self._portrait_key: Optional[str] = None
@@ -176,11 +177,21 @@ class MuseTalkEngine:
         self.pe = pe
 
         self.timesteps = torch.tensor([0], device=self.device)
+        # The inner torch module is named differently across MuseTalk versions
+        # (official VAE wrapper: .vae — some forks: .model; UNet: .model/.unet).
+        vae_module = getattr(self.vae, "model", None) or getattr(self.vae, "vae", None)
+        unet_module = getattr(self.unet, "model", None) or getattr(self.unet, "unet", None)
+        if vae_module is None or unet_module is None:
+            raise GpuUnavailableError(
+                "Could not locate inner VAE/UNet torch modules on the MuseTalk "
+                "wrappers — unsupported MuseTalk version."
+            )
+        self._unet_module = unet_module   # used directly at inference time
         if AVATAR_FP16:
             self.pe = self.pe.half()
-            self.vae.model = self.vae.model.half()
-            self.unet.model = self.unet.model.half()
-        for m in (self.pe, self.vae.model, self.unet.model):
+            vae_module.half()       # in-place fp16 conversion
+            unet_module.half()
+        for m in (self.pe, vae_module, unet_module):
             m.requires_grad_(False)
 
         self.load_time_s = time.time() - t0
@@ -373,7 +384,7 @@ class MuseTalkEngine:
                 audio_feature_batch = self.pe(audio_feature_batch)
                 latent_batch = latent_batch.to(device=device, dtype=weight_dtype)
 
-                pred_latents = self.unet.model(
+                pred_latents = self._unet_module(
                     latent_batch, self.timesteps,
                     encoder_hidden_states=audio_feature_batch
                 ).sample
