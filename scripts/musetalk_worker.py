@@ -60,7 +60,7 @@ AVATAR_DEVICE = os.environ.get("AVATAR_DEVICE", "cuda:0")
 AVATAR_FP16 = os.environ.get("AVATAR_FP16", "1") == "1"
 TARGET_FPS = int(os.environ.get("AVATAR_TARGET_FPS", "25"))
 MAX_QUEUE = int(os.environ.get("AVATAR_MAX_QUEUE", "3"))
-BATCH_SIZE = int(os.environ.get("AVATAR_BATCH_SIZE", "4"))
+BATCH_SIZE = int(os.environ.get("AVATAR_BATCH_SIZE", "8"))
 BBOX_SHIFT = int(os.environ.get("AVATAR_BBOX_SHIFT", "0"))
 ENGINE_MODE = os.environ.get("AVATAR_ENGINE_MODE", "musetalk").lower().strip()
 # Whole-frame animation layer during speech (sway + blinking) — makes the
@@ -539,6 +539,13 @@ class MuseTalkWorker:
 
         def _run():
             try:
+                # The job may have been cancelled while it sat in the queue
+                # (user pressed Stop / asked a new question / old session's
+                # speech). Skip it instantly so stale jobs never block fresh
+                # ones or fill the bounded queue (the old "503 queue full").
+                if cancel_event.is_set():
+                    stats["cancelled_pre_start"] = True
+                    return
                 with self.gpu_lock:  # only one GPU job at a time
                     t0 = time.time()
                     self.engine.prepare_portrait(portrait, portrait_key, eyes=eyes)

@@ -68,6 +68,8 @@ ALLOWED_ORIGINS = [o.strip() for o in os.environ.get(
     "AVATAR_ALLOWED_ORIGINS", "http://localhost:8000,http://127.0.0.1:8000").split(",") if o.strip()]
 SESSION_TTL_S = int(os.environ.get("AVATAR_SESSION_TTL_S", "3600"))
 MAX_SPEECH_CHARS = int(os.environ.get("AVATAR_MAX_SPEECH_CHARS", "5000"))
+# Frames buffered before an utterance's audio/video playback starts (25 = 1 s).
+PREROLL_FRAMES = int(os.environ.get("AVATAR_PREROLL_FRAMES", "25"))
 WEBRTC_SAMPLE_RATE = 48000
 SAMPLES_PER_PACKET = 960          # 20 ms @ 48 kHz
 SAMPLES_PER_VIDEO_FRAME = WEBRTC_SAMPLE_RATE // TARGET_FPS  # 1920 @ 25 fps
@@ -181,7 +183,7 @@ if _AIORTC_AVAILABLE:
             if speech is not None:
                 # Align video frame to the audio timeline by frame index
                 idx = self._counter // (90000 // TARGET_FPS) - 1
-                if speech.ended_at(idx * SAMPLES_PER_VIDEO_FRAME):
+                if speech.ended_at(idx * SAMPLES_PER_VIDEO_FRAME):  # noqa: E501 — pts on the 48 kHz timeline
                     # Utterance finished -> smoothly return to the idle loop
                     logger.info("Session %s speech ended (stats=%s) — returning to idle",
                                 self.session.session_id,
@@ -190,7 +192,7 @@ if _AIORTC_AVAILABLE:
                     self.session.speech_state = None
                     speech = None
                 else:
-                    frame = speech.get_video_frame(idx)
+                    frame = speech.get_video_frame(idx * SAMPLES_PER_VIDEO_FRAME)
 
             if frame is None:
                 loop = self.session.idle_loop
@@ -240,7 +242,13 @@ else:
 
 
 class SpeechState:
-    """Holds one utterance's audio + generated frames, addressed by timeline index."""
+    """Holds one utterance's audio + generated frames, addressed by timeline index.
+
+    Preroll: audio/video playback only starts once PREROLL_FRAMES frames are
+    buffered. Without this, a GPU generating slower than realtime lets the
+    video playhead outrun the frame generator — the lips then hold a stale
+    frame ("frozen mouth") while the audio keeps playing.
+    """
 
     def __init__(self, pcm48: np.ndarray, frame_queue: "queue.Queue",
                  cancel_event: threading.Event, stats: dict):
@@ -250,6 +258,7 @@ class SpeechState:
         self.stats = stats
         self.frames: Dict[int, np.ndarray] = {}
         self.generator_done = False
+        self.start_pts: Optional[int] = None   # 48 kHz sample timeline
         self._pump = threading.Thread(target=self._pump_frames, daemon=True)
         self._pump.start()
 
@@ -269,7 +278,21 @@ class SpeechState:
                 oldest = min(self.frames)
                 self.frames.pop(oldest, None)
 
-    def get_video_frame(self, idx: int) -> Optional[np.ndarray]:
+    def _playback_ready(self, pts: int) -> bool:
+        """Latch the shared start point on the 48 kHz timeline once the
+        preroll buffer is filled (or the generator finished early, e.g. a
+        crash — then we play audio over the idle loop rather than nothing)."""
+        if self.start_pts is not None:
+            return True
+        if len(self.frames) >= PREROLL_FRAMES or self.generator_done:
+            self.start_pts = pts
+            return True
+        return False
+
+    def get_video_frame(self, pts_samples: int) -> Optional[np.ndarray]:
+        if not self._playback_ready(pts_samples):
+            return None  # still buffering -> caller shows the idle loop
+        idx = (pts_samples - self.start_pts) // SAMPLES_PER_VIDEO_FRAME
         if idx in self.frames:
             return self.frames[idx]
         # hold nearest available earlier frame to avoid flicker when renderer lags
@@ -283,8 +306,10 @@ class SpeechState:
         return None
 
     def get_audio_packet(self, pts: int) -> np.ndarray:
-        start = pts
-        end = pts + SAMPLES_PER_PACKET
+        if not self._playback_ready(pts):
+            return np.zeros(SAMPLES_PER_PACKET, dtype=np.int16)
+        start = pts - self.start_pts
+        end = start + SAMPLES_PER_PACKET
         if start >= len(self.pcm48):
             return np.zeros(SAMPLES_PER_PACKET, dtype=np.int16)
         packet = self.pcm48[start:end]
@@ -295,7 +320,9 @@ class SpeechState:
     def ended_at(self, pts: int) -> bool:
         """True once the audio timeline has passed the end of the utterance
         and the frame generator has finished — the session returns to idle."""
-        return pts >= len(self.pcm48) and self.generator_done
+        return (self.start_pts is not None
+                and pts - self.start_pts >= len(self.pcm48)
+                and self.generator_done)
 
 
 # ---------------------------------------------------------------------------

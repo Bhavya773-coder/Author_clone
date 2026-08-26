@@ -972,7 +972,11 @@
           body: JSON.stringify({ text, voice: voiceSelect.value })
         });
         if (!res.ok) {
-          if (res.status === 503) { rtActive = false; setAppState("fallback"); return false; }
+          if (res.status === 503) {
+            // Engine still finishing a previous job — transient, NOT fatal.
+            setAppState("error", "Avatar engine busy — please ask again in a few seconds.");
+            return false;
+          }
           if (res.status === 404 && !retried) {
             // Session expired or server restarted — rebuild it and retry ONCE
             console.warn("speak: session unknown — reconnecting and retrying...");
