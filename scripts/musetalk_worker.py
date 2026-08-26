@@ -65,7 +65,9 @@ BBOX_SHIFT = int(os.environ.get("AVATAR_BBOX_SHIFT", "0"))
 ENGINE_MODE = os.environ.get("AVATAR_ENGINE_MODE", "musetalk").lower().strip()
 # Whole-frame animation layer during speech (sway + blinking) — makes the
 # entire portrait subtly alive instead of a frozen photo with moving lips.
-HEAD_MOTION = os.environ.get("AVATAR_HEAD_MOTION", "1") == "1"
+# Procedural sway/blink overlay during speech. OFF by default — pure MuseTalk
+# output is the reference behavior; opt in with AVATAR_HEAD_MOTION=1.
+HEAD_MOTION = os.environ.get("AVATAR_HEAD_MOTION", "0") == "1"
 
 AUDIO_SAMPLE_RATE = 16000
 SAMPLES_PER_FRAME = AUDIO_SAMPLE_RATE // TARGET_FPS  # 640 samples/frame @ 25 fps
