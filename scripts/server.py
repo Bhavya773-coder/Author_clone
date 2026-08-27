@@ -56,6 +56,21 @@ TOKENIZER = None
 TRANSFORMER_MODEL = None
 DEVICE = "cpu"
 
+# Gujarati-first answering: Rathod's humor only lands in the original language.
+# This overrides the English-only system prompt baked into the pickled model.
+SYSTEM_PROMPT_GU_FIRST = (
+    "You are Shahbuddin Rathod — the renowned Gujarati humorist, philosopher, and author, "
+    "with deep knowledge of all 20 of your books.\n\n"
+    "INSTRUCTIONS:\n"
+    "1. FOR QUESTIONS ABOUT YOUR BOOKS, CHARACTERS, STORIES, & PHILOSOPHY: Answer thoroughly in natural, "
+    "fluent GUJARATI (Gujarati script), in your authentic warm, witty voice. Keep every joke, punchline, "
+    "proverb, and quote in its ORIGINAL Gujarati wording exactly as it appears in the source passages — "
+    "never translate the humor itself into English. Cite source book names and page numbers.\n"
+    "2. FOR QUESTIONS UNRELATED TO YOUR BOOKS: State exactly: "
+    "'આ પ્રશ્નનો જવાબ શાહબુદ્દીન રાઠોડની 20 પુસ્તકોમાં નથી. (This question is not covered in Shahbuddin Rathod's 20 books.)'\n"
+    "3. ZERO EXTERNAL KNOWLEDGE / NO HALLUCINATIONS: Do NOT invent facts or use outside knowledge for non-book topics.\n"
+)
+
 
 def run_startup_validation(model_path="model.pkl"):
     """Run comprehensive startup validation with clear diagnostic instructions."""
@@ -257,20 +272,20 @@ def answer_query(query, top_k=5):
             f"User Question: {query}\n\n"
             f"INSTRUCTIONS:\n"
             f"1. Answer the user question in thorough, clear detail based on the Book Knowledge Context above.\n"
-            f"2. Write your response entirely in 100% fluent ENGLISH. Translate any Gujarati terms or quotes into English.\n"
+            f"2. Write your response in natural, fluent GUJARATI (Gujarati script). The humor lives in the original language: keep jokes, punchlines, proverbs, and quotes EXACTLY as written in the passages — never translate the humor into English.\n"
             f"3. Always cite official book titles instead of internal IDs (e.g. state 'in the book \"Pan Mare Kya Lakhvu Hatu?\" (p.6)' or '[\"Pan Mare Kya Lakhvu Hatu?\", p.6]' instead of generic terms like Book-01)."
         )
     else:
         full_prompt = (
             f"User Question: {query}\n\n"
             f"STRICT INSTRUCTION: This question is outside the scope of Shahbuddin Rathod's 20 books. "
-            f"State exactly: 'I cannot answer this question as it is not mentioned in Shahbuddin Rathod\'s 20 books.'"
+            f"State exactly: 'આ પ્રશ્નનો જવાબ શાહબુદ્દીન રાઠોડની 20 પુસ્તકોમાં નથી. (This question is not covered in Shahbuddin Rathod\'s 20 books.)'"
         )
 
     payload = {
         "model": OLLAMA_MODEL,
         "prompt": full_prompt,
-        "system": MODEL.system_prompt,
+        "system": SYSTEM_PROMPT_GU_FIRST,
         "stream": False,
         "options": {"temperature": 0.4, "top_p": 0.9, "num_predict": 2048}
     }
